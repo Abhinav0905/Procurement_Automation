@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ProcureGuard — Procurement Control</title>
+  <link rel="stylesheet" href="/ui/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">🛡️</span>
+      <div>
+        <h1>ProcureGuard</h1>
+        <p class="tagline">AI proposes · humans approve</p>
+      </div>
+    </div>
+    <div class="identity">
+      <label>
+        <span>Acting as</span>
+        <select id="actor-select" title="Local development identity switcher"></select>
+      </label>
+      <span id="backend-badges" class="badges"></span>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-view="dashboard" role="tab">Dashboard</button>
+    <button class="tab" data-view="cases" role="tab">Cases</button>
+    <button class="tab" data-view="outbox" role="tab">Outbox</button>
+    <button class="tab" data-view="data" role="tab">Master data</button>
+  </nav>
+
+  <main id="app">
+    <section id="view-dashboard" class="view active"></section>
+    <section id="view-cases" class="view"></section>
+    <section id="view-case" class="view"></section>
+    <section id="view-outbox" class="view"></section>
+    <section id="view-data" class="view"></section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <dialog id="approval-dialog">
+    <form method="dialog" id="approval-form">
+      <h2 id="approval-title">Approve</h2>
+      <p id="approval-description" class="muted"></p>
+      <div id="approval-extra"></div>
+      <label>
+        <span>Reason (recorded in the audit trail)</span>
+        <textarea id="approval-reason" rows="4" required minlength="3"
+                  placeholder="State what you checked and why you are approving or rejecting."></textarea>
+      </label>
+      <label class="inline">
+        <input type="checkbox" id="approval-reject" />
+        <span>Reject instead of approve</span>
+      </label>
+      <div class="dialog-actions">
+        <button type="button" class="btn ghost" id="approval-cancel">Cancel</button>
+        <button type="submit" class="btn primary" id="approval-submit">Submit decision</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/ui/app.js"></script>
+</body>
+</html>

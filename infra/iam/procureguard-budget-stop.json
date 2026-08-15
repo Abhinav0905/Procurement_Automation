@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "HaltAllSpendOnBudgetBreach",
+      "Effect": "Deny",
+      "NotAction": [
+        "iam:ChangePassword",
+        "ce:GetCostAndUsage",
+        "budgets:ViewBudget",
+        "budgets:DescribeBudgets",
+        "sts:GetCallerIdentity"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

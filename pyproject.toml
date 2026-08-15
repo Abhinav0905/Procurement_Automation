@@ -1,0 +1,95 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "procureguard"
+version = "1.0.0"
+description = "Enterprise human-in-the-loop procurement agent on CockroachDB, Temporal and AWS"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+dependencies = [
+  "fastapi>=0.116,<1",
+  "uvicorn[standard]>=0.35,<1",
+  "pydantic>=2.11,<3",
+  "pydantic-settings>=2.10,<3",
+  "sqlalchemy>=2.0.47,<2.1",
+  "sqlalchemy-cockroachdb>=2.0.2,<3",
+  "psycopg[binary]>=3.2,<4",
+  "alembic>=1.16,<2",
+  "boto3>=1.40,<2",
+  "temporalio>=1.15,<2",
+  "structlog>=25.4,<27",
+  "orjson>=3.11,<4",
+  "python-multipart>=0.0.20,<1",
+]
+
+[project.optional-dependencies]
+# PDF extraction. Without it, PDFs are stored and hashed but not indexed, and
+# the ingestion result says so explicitly rather than returning empty text.
+documents = ["pypdf>=5.1,<7"]
+# JWT verification for AUTH_MODE=oidc.
+oidc = ["pyjwt[crypto]>=2.9,<3"]
+otel = [
+  "opentelemetry-sdk>=1.27,<2",
+  "opentelemetry-exporter-otlp-proto-grpc>=1.27,<2",
+]
+dev = [
+  "pytest>=8.4",
+  "pytest-asyncio>=1.0",
+  "ruff>=0.12",
+  "mypy>=1.17",
+  "httpx>=0.28",
+]
+all = ["procureguard[documents,oidc,otel,dev]"]
+
+[project.scripts]
+procureguard = "procureguard.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["procureguard*"]
+
+[tool.setuptools.package-data]
+"procureguard.api" = ["ui/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q --strict-markers"
+markers = [
+  "integration: requires a running CockroachDB (set PROCUREGUARD_TEST_DB)",
+]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["migrations/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "C4", "RET", "PTH"]
+ignore = [
+  "E501",    # long lines are wrapped by hand where it aids reading
+  "B008",    # FastAPI dependency injection relies on calls in defaults
+  "RET504",  # a named result before return is often the clearer form
+  "SIM108",  # ternaries are not always more readable than if/else
+  "SIM105",  # contextlib.suppress hides which call is allowed to fail
+  "PTH123",  # open() is correct for the few binary reads that use it
+  "PTH105",  # os.replace is the atomic rename; Path has no equivalent
+  "E741",    # `l` for a line in a tight comprehension reads fine
+  "C408",    # dict(...) is clearer than {...} for keyword-style construction
+  "UP047",   # PEP 695 generics need 3.12+ everywhere before adopting
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests deliberately assert that construction raises *something* when the point
+# is that the configuration is refused, not which class is raised.
+"tests/*" = ["B011", "B017"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_ignores = true
+check_untyped_defs = true
+exclude = ["migrations/", "tests/"]

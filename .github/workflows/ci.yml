@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  quality:
+    name: Lint, types and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev,documents]"
+      - name: Lint
+        run: ruff check procureguard tests
+      - name: Compile check
+        run: python -m compileall -q procureguard
+      - name: Types
+        run: mypy procureguard
+        continue-on-error: true
+      - name: Unit tests
+        run: pytest -q
+
+  integration:
+    name: Integration against CockroachDB
+    runs-on: ubuntu-latest
+    services:
+      cockroach:
+        image: cockroachdb/cockroach:latest
+        options: >-
+          --health-cmd "curl -sf http://localhost:8080/health?ready=1"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+        ports:
+          - 26257:26257
+          - 8080:8080
+    env:
+      # Integration runs entirely on local adapters: no AWS account, no model.
+      DATABASE_URL: cockroachdb+psycopg://root@localhost:26257/procureguard?sslmode=disable
+      PROCUREGUARD_TEST_DB: "1"
+      LLM_BACKEND: deterministic
+      EMBEDDING_BACKEND: hashing
+      EMBEDDING_DIMENSIONS: "256"
+      OBJECT_STORE_BACKEND: local
+      EMAIL_BACKEND: filesystem
+      ENCRYPTION_BACKEND: local
+      AUTH_MODE: dev
+      LOG_LEVEL: WARNING
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev,documents]"
+      - name: Create database
+        run: |
+          docker run --rm --network host cockroachdb/cockroach:latest \
+            sql --insecure --host localhost:26257 \
+            -e "CREATE DATABASE IF NOT EXISTS procureguard;"
+      - name: Migrate
+        run: alembic upgrade head
+      - name: Report capabilities
+        run: procureguard db check
+      - name: Integration tests
+        run: pytest -q -m integration
+      - name: Seed and drive the full pipeline
+        run: |
+          procureguard seed --scale small --reset
+          procureguard demo --scale small
+          procureguard db stats
+
+  image:
+    name: Container image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: procureguard:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Verify the image starts and answers health
+        run: |
+          docker run -d --name pg-ci -p 8000:8000 \
+            -e APP_ENV=local -e AUTH_MODE=dev \
+            -e DATABASE_URL=cockroachdb+psycopg://root@127.0.0.1:26257/procureguard?sslmode=disable \
+            procureguard:ci
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/api/v1/health >/dev/null; then
+              echo "healthy"; docker rm -f pg-ci; exit 0
+            fi
+            sleep 2
+          done
+          echo "did not become healthy"; docker logs pg-ci; docker rm -f pg-ci; exit 1

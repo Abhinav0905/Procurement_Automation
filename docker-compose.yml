@@ -1,0 +1,128 @@
+# Local development stack. Mirrors the production topology with substitutes:
+# CockroachDB single-node for CockroachDB Cloud, MinIO for S3, MailHog for SES,
+# and a dev Temporal for Temporal Cloud. Application code is identical.
+
+name: procureguard
+
+services:
+  cockroach:
+    image: cockroachdb/cockroach:latest
+    command: start-single-node --insecure
+    ports:
+      - "26257:26257"   # SQL
+      - "8081:8080"     # DB console
+    volumes:
+      - cockroach-data:/cockroach/cockroach-data
+    healthcheck:
+      test: ["CMD", "./cockroach", "sql", "--insecure", "-e", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Temporal needs its own persistence; Postgres is the supported dev choice.
+  temporal-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    volumes:
+      - temporal-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  temporal:
+    image: temporalio/auto-setup:1.26.2
+    depends_on:
+      temporal-postgres:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: temporal
+      POSTGRES_SEEDS: temporal-postgres
+    ports:
+      - "7233:7233"
+
+  temporal-ui:
+    image: temporalio/ui:2.31.2
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:3000
+    ports:
+      - "8088:8080"
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: procureguard
+      MINIO_ROOT_PASSWORD: procureguard
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Catches every outbound message so RFQ and negotiation email can be inspected
+  # without any chance of reaching a real supplier.
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # web UI
+
+  api:
+    build: .
+    profiles: ["app"]
+    depends_on:
+      cockroach:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: cockroachdb+psycopg://root@cockroach:26257/procureguard?sslmode=disable
+      TEMPORAL_ADDRESS: temporal:7233
+      EMAIL_BACKEND: smtp
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      OBJECT_STORE_BACKEND: local
+      LLM_BACKEND: deterministic
+      AUTH_MODE: dev
+      LOG_FORMAT: json
+    ports:
+      - "8000:8000"
+    command: >
+      uvicorn procureguard.api.main:create_app --factory --host 0.0.0.0 --port 8000
+
+  worker:
+    build: .
+    profiles: ["app"]
+    depends_on:
+      cockroach:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+    environment:
+      DATABASE_URL: cockroachdb+psycopg://root@cockroach:26257/procureguard?sslmode=disable
+      TEMPORAL_ADDRESS: temporal:7233
+      EMAIL_BACKEND: smtp
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      LLM_BACKEND: deterministic
+      LOG_FORMAT: json
+    command: python -m procureguard.workflows.worker
+
+volumes:
+  cockroach-data:
+  temporal-postgres:
+  minio-data:
