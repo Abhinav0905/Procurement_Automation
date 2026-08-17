@@ -9,7 +9,7 @@
         "bedrock:InvokeModelWithResponseStream"
       ],
       "Resource": [
-        "arn:aws:bedrock:us-east-1::inference-profile/us.*",
+        "arn:aws:bedrock:us-east-1:*:inference-profile/us.*",
         "arn:aws:bedrock:us-east-1::foundation-model/*",
         "arn:aws:bedrock:us-east-2::foundation-model/*",
         "arn:aws:bedrock:us-west-2::foundation-model/*"
