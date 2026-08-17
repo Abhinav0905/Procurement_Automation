@@ -1,0 +1,8 @@
+Item,Material,Short Text,Plant,Material Group,SLoc,Quantity,UoM,Delivery Date,Notes
+10,HYD-00048,Hydraulic pump SS 316 centrifugal,1000,MG-HYD,0001,2,EA,2026-10-30,Cooling water transfer duty. Minimum discharge pressure 16 bar. Casing SS 316 or better. Mechanical seal to API 682. Vendor to confirm NPSHr and supply pump curve with the offer.
+20,VAL-00050,Ball valve DN28 SS 316L flanged,1000,MG-VALVE,0001,12,EA,2026-10-30,Full bore ball valve, body SS 316L, flanged ends to ASME B16.5 Class 150. Fire-safe design to API 607. Anti-static stem. Lever operated.
+30,,SS 304 seamless pipe 50NB Sch 40,1000,MG-RAW,0002,60,M,2026-10-30,Seamless austenitic stainless pipe ASTM A312 TP304 50NB Schedule 40. Mill test certificate EN 10204 3.1 required with each lot. Random lengths 5-6 m acceptable.
+40,,Elbow 90 deg 50NB SS 304 butt weld,1000,MG-RAW,0002,24,EA,2026-10-30,Butt weld long radius elbow 90 degree 50NB SS 304 to ASTM A403 WP304. Schedule 40 wall to match connecting pipe. Certificate 3.1 required.
+50,,Equal tee 50NB SS 304 butt weld,1000,MG-RAW,0002,8,EA,2026-10-30,Butt weld equal tee 50NB SS 304 to ASTM A403 WP304 Schedule 40. Certificate EN 10204 3.1 required. Dimensions to ASME B16.9.
+60,FST-00133,Hex head bolt 38mm Steel 10.9,1000,MG-FAST,0001,400,EA,2026-10-15,Hex head bolt M16 x 38 property class 10.9 with hot dip galvanised finish. Supply with matching nuts and washers. Batch certificate required.
+70,SEL-00022,Sheet gasket 158mm NBR,1000,MG-SEAL,0001,40,EA,2026-10-15,Full face sheet gasket 158mm outside diameter NBR 3mm thickness for flanged joints ASME B16.5 Class 150. Shelf life at least 24 months from despatch.

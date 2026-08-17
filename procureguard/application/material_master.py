@@ -399,6 +399,28 @@ class MaterialMasterValidationService:
                 f"{line.quantity} {requested} converts to {resolution.quantity_in_base_uom} {base}"
             )
 
+    def _validate_uom_without_master(
+        self, line: PurchaseRequisitionLine, resolution: MaterialResolution
+    ) -> None:
+        """Validate the unit on a line that matched no material master record.
+
+        There is no base unit to convert into, so the requested unit is its own
+        base. It must still be recognised: an unparseable unit on a free-text line
+        would otherwise reach the RFQ unchallenged and be quoted against by
+        guesswork, which is exactly the ambiguity the unit table exists to refuse.
+        """
+        raw = (line.uom or "").strip()
+        if not raw:
+            resolution.blocking_messages.append("Unit of measure is missing")
+            return
+        try:
+            requested = normalize_uom(raw)
+        except Exception:
+            resolution.blocking_messages.append(f"Unit of measure {raw!r} is not recognised")
+            return
+        resolution.normalized_uom = requested
+        resolution.quantity_in_base_uom = line.quantity
+
     @staticmethod
     def _check_quantity(
         extension: MaterialPlantModel | None,
