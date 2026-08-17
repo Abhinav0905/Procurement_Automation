@@ -194,6 +194,24 @@ async function renderCases() {
     el.innerHTML = `
       <div class="card">
         <header>
+          <h2>Open a case from a requisition</h2>
+          <div class="row">
+            <label class="muted" for="upload-plant">Plant</label>
+            <input id="upload-plant" value="1000" style="width:5.5rem" />
+            <label class="muted"><input type="checkbox" id="upload-start" checked /> start workflow</label>
+          </div>
+        </header>
+        <div id="dropzone" class="dropzone">
+          <p><strong>Drop a requisition here</strong> — CSV, JSON or a saved e-mail</p>
+          <p class="muted">Columns are matched by alias, so SAP names work directly:
+             <span class="mono">matnr, werks, lgort, menge, meins, eddat</span>.</p>
+          <input type="file" id="upload-file" accept=".csv,.tsv,.json,.eml,.txt,text/csv,application/json,message/rfc822" />
+        </div>
+        <div id="upload-status"></div>
+      </div>
+
+      <div class="card">
+        <header>
           <h2>Sourcing cases</h2>
           <div class="row">
             <input id="case-filter" placeholder="Filter by id, PR or title" />
@@ -231,8 +249,73 @@ async function renderCases() {
         row.style.display = row.textContent.toLowerCase().includes(needle) ? '' : 'none';
       });
     });
+
+    const zone = document.getElementById('dropzone');
+    const picker = document.getElementById('upload-file');
+    picker?.addEventListener('change', (event) => uploadRequisition(event.target.files[0]));
+    ['dragenter', 'dragover'].forEach((name) =>
+      zone?.addEventListener(name, (event) => {
+        event.preventDefault();
+        zone.classList.add('dragging');
+      }));
+    ['dragleave', 'drop'].forEach((name) =>
+      zone?.addEventListener(name, (event) => {
+        event.preventDefault();
+        zone.classList.remove('dragging');
+      }));
+    zone?.addEventListener('drop', (event) =>
+      uploadRequisition(event.dataTransfer?.files?.[0]));
   } catch (error) {
     el.innerHTML = `<div class="card"><p class="pill danger">${esc(error.message)}</p></div>`;
+  }
+}
+
+async function uploadRequisition(file) {
+  if (!file) return;
+  const status = document.getElementById('upload-status');
+  const plant = document.getElementById('upload-plant')?.value.trim() || '';
+  const startWorkflow = document.getElementById('upload-start')?.checked ? 'true' : 'false';
+  status.innerHTML = `<p><span class="spinner"></span> Parsing ${esc(file.name)}…</p>`;
+
+  const form = new FormData();
+  form.append('file', file);
+  form.append('plant_code', plant);
+  form.append('source_channel', 'UPLOAD');
+  form.append('start_workflow', startWorkflow);
+
+  try {
+    // Content-Type is deliberately omitted: the browser must set the multipart
+    // boundary itself, so headers() cannot be reused here.
+    const response = await fetch(`${API}/cases/upload`, {
+      method: 'POST',
+      headers: { 'X-Actor-Id': identity.id, 'X-Actor-Roles': identity.roles },
+      body: form,
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.message || `HTTP ${response.status}`);
+
+    const warnings = body.warnings || [];
+    const workflow = body.workflow || {};
+    status.innerHTML = `
+      <div class="card sub">
+        <p><strong>Case ${esc(body.case_id)}</strong> opened from ${esc(file.name)} —
+           ${esc(String(body.line_count))} line(s), parsed as ${esc(body.source_format)}
+           at confidence ${esc(String(body.parse_confidence))}.</p>
+        ${workflow.workflow_id
+          ? `<p class="pill ok">Workflow ${esc(workflow.workflow_id)} started</p>`
+          : (workflow.error
+              ? `<p class="pill warn">Workflow not started: ${esc(String(workflow.error).slice(0, 120))}</p>`
+              : '')}
+        ${warnings.length
+          ? `<p class="muted">Parser notes:</p><ul>${warnings
+              .map((w) => `<li class="muted">${esc(w)}</li>`).join('')}</ul>`
+          : ''}
+        <button class="btn primary small" onclick="openCase('${esc(body.case_id)}')">Open case</button>
+      </div>`;
+    toast(`Case ${body.case_id} opened`, 'ok');
+  } catch (error) {
+    status.innerHTML = `<p class="pill danger">${esc(error.message)}</p>`;
+    toast(error.message, 'danger');
   }
 }
 
@@ -1164,5 +1247,5 @@ Object.assign(window, {
   openCase, switchTab, approve, approveAward, acceptDeviation, releasePo,
   engineeringReady, loadMatrix, loadDecisions, loadAudit, loadCorrespondence,
   loadInfoRecords, applyInfoRecord, releaseMail, pollInbox, renderCases,
-  renderOutbox, searchMaterials, loadBenchmark, quickBenchmark,
+  renderOutbox, searchMaterials, loadBenchmark, quickBenchmark, uploadRequisition,
 });

@@ -218,3 +218,14 @@ dialog label { display: block; margin: .75rem 0; }
 .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border);
   border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Requisition intake: a drop target on the Cases view. The dashed border is the
+   affordance — it has to read as "put a file here" without a label. */
+.dropzone {
+  border: 2px dashed var(--border); border-radius: var(--radius);
+  padding: 1.5rem; text-align: center; transition: background .15s, border-color .15s;
+}
+.dropzone.dragging { border-color: var(--accent); background: var(--accent-soft); }
+.dropzone p { margin: 0 0 .5rem; }
+.dropzone input[type="file"] { margin-top: .5rem; }
+.card.sub { margin-top: 1rem; background: var(--surface-2); }

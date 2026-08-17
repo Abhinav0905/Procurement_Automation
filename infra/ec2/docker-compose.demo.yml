@@ -1,0 +1,99 @@
+# Demo host stack: Temporal, its Postgres, the API and a worker.
+#
+# The database is NOT here — it is the CockroachDB Cloud cluster, passed in as
+# DATABASE_URL. Temporal needs its own persistence and Postgres is the supported
+# dev choice, so it runs locally and holds workflow state only.
+#
+# This exists separately from the repo-root docker-compose.yml because that file
+# is the *developer* stack (it brings up CockroachDB, MinIO and MailHog too). The
+# demo host needs neither: object storage is on local disk and no mail leaves the
+# box.
+
+name: procureguard-demo
+
+services:
+  temporal-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    volumes:
+      - temporal-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  temporal:
+    image: temporalio/auto-setup:1.26.2
+    restart: unless-stopped
+    depends_on:
+      temporal-postgres:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: temporal
+      POSTGRES_SEEDS: temporal-postgres
+    ports:
+      - "7233:7233"
+
+  temporal-ui:
+    image: temporalio/ui:2.31.2
+    restart: unless-stopped
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: "*"
+    ports:
+      - "8088:8080"
+
+  api:
+    build: /opt/app
+    restart: unless-stopped
+    depends_on:
+      - temporal
+    environment: &appenv
+      APP_ENV: local
+      AUTH_MODE: dev
+      LOG_FORMAT: json
+      DEFAULT_TENANT_ID: ACME-MFG
+      DATABASE_URL: ${DATABASE_URL}
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      TEMPORAL_TASK_QUEUE: procureguard-procurement
+      OBJECT_STORE_BACKEND: local
+      LLM_BACKEND: deterministic
+      EMBEDDING_BACKEND: hashing
+      EMBEDDING_DIMENSIONS: "256"
+      EMAIL_BACKEND: filesystem
+      ENCRYPTION_BACKEND: local
+      ALLOW_AUTOMATED_EMAIL_SEND: "false"
+      ALLOW_AUTOMATED_PO_CREATION: "false"
+      # DDL and bulk stages against a throttled Basic cluster exceed the 30s
+      # default that is correct for serving traffic.
+      DB_STATEMENT_TIMEOUT_MS: "120000"
+    volumes:
+      - /opt/certs/root.crt:/home/appuser/.postgresql/root.crt:ro
+    ports:
+      - "80:8000"
+    command: >
+      uvicorn procureguard.api.main:create_app --factory --host 0.0.0.0 --port 8000
+
+  worker:
+    build: /opt/app
+    restart: unless-stopped
+    depends_on:
+      - temporal
+    environment: *appenv
+    volumes:
+      - /opt/certs/root.crt:/home/appuser/.postgresql/root.crt:ro
+    command: python -m procureguard.workflows.worker
+
+volumes:
+  temporal-postgres:

@@ -16,7 +16,10 @@
 set -euo pipefail
 
 REGION="${REGION:-us-east-1}"
-INSTANCE_TYPE="${INSTANCE_TYPE:-t4g.micro}"
+# t4g.small, not micro: the host runs Temporal, its Postgres, the API and a
+# worker, so the demo exercises the real durable-orchestration path rather than
+# a simulated one. 1 GiB cannot hold that set.
+INSTANCE_TYPE="${INSTANCE_TYPE:-t4g.small}"
 NAME="${NAME:-procureguard-demo}"
 SG_NAME="${SG_NAME:-procureguard-demo-sg}"
 CLUSTER_ID="${CLUSTER_ID:-f369276d-9167-41dd-9833-10d7ba7e3fe0}"
@@ -71,12 +74,18 @@ if [[ "$SG" == "None" || -z "$SG" ]]; then
   SG="$(aws ec2 create-security-group --region "$REGION" \
     --group-name "$SG_NAME" --description "ProcureGuard demo, HTTP only" \
     --vpc-id "$VPC" --query 'GroupId' --output text)"
-  aws ec2 authorize-security-group-ingress --region "$REGION" --group-id "$SG" \
-    --protocol tcp --port 80 --cidr 0.0.0.0/0 >/dev/null
-  echo "    Created SG $SG (tcp/80 from anywhere)"
+  echo "    Created SG $SG"
 else
   echo "    Reusing SG $SG"
 fi
+
+# 80 for the app, 8088 for the Temporal UI so workflow executions are visible.
+# Both idempotent: an existing rule returns Duplicate and is not an error here.
+for port in 80 8088; do
+  aws ec2 authorize-security-group-ingress --region "$REGION" --group-id "$SG" \
+    --protocol tcp --port "$port" --cidr 0.0.0.0/0 >/dev/null 2>&1 \
+    && echo "    Opened tcp/$port" || echo "    tcp/$port already open"
+done
 
 # ── user-data ───────────────────────────────────────────────────────────────
 # Swap first: the Docker build compiles wheels and 1 GiB alone is marginal.
@@ -95,27 +104,14 @@ systemctl enable --now docker
 mkdir -p /opt/certs
 curl -sS -o /opt/certs/root.crt "https://cockroachlabs.cloud/clusters/${CLUSTER_ID}/cert"
 
-git clone --depth 1 "${REPO}" /opt/app
-cd /opt/app
-docker build -t procureguard:demo .
+dnf install -y docker-compose-plugin || true
 
-docker run -d --name procureguard --restart unless-stopped \\
-  -p 80:8000 \\
-  -v /opt/certs/root.crt:/home/appuser/.postgresql/root.crt:ro \\
-  -e APP_ENV=local \\
-  -e AUTH_MODE=dev \\
-  -e LOG_FORMAT=json \\
-  -e DEFAULT_TENANT_ID=ACME-MFG \\
-  -e DATABASE_URL='${DATABASE_URL}' \\
-  -e OBJECT_STORE_BACKEND=local \\
-  -e LLM_BACKEND=deterministic \\
-  -e EMBEDDING_BACKEND=hashing \\
-  -e EMBEDDING_DIMENSIONS=256 \\
-  -e EMAIL_BACKEND=filesystem \\
-  -e ENCRYPTION_BACKEND=local \\
-  -e ALLOW_AUTOMATED_EMAIL_SEND=false \\
-  -e ALLOW_AUTOMATED_PO_CREATION=false \\
-  procureguard:demo
+git clone --depth 1 "${REPO}" /opt/app
+
+# Temporal, its Postgres, the API and a worker. The database stays remote — this
+# host holds workflow state only.
+cd /opt/app/infra/ec2
+DATABASE_URL='${DATABASE_URL}' docker compose -f docker-compose.demo.yml up -d --build
 EOF
 )"
 
@@ -139,12 +135,18 @@ DNS="$(aws ec2 describe-instances --region "$REGION" --instance-ids "$ID" \
 cat <<DONE
 
 ==> Instance running: $ID
-    Demo URL:  http://$DNS
-    IP:        $IP
+    Demo URL:     http://$DNS
+    Temporal UI:  http://$DNS:8088
+    IP:           $IP
 
-The Docker build takes several minutes on a t4g.micro. Poll until it answers:
+Four containers build and start on first boot (Temporal, Postgres, API, worker),
+so allow roughly ten minutes. Poll until the API answers:
 
     until curl -sf "http://$DNS/api/v1/health"; do sleep 20; done
+
+Then confirm Temporal is connected, not merely running:
+
+    curl -s "http://$DNS/api/v1/health/ready" | grep -o '"temporal":{[^}]*}'
 
 Teardown when judging is over (billing stops at 'terminated'):
 
