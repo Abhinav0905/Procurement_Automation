@@ -49,9 +49,73 @@ designations — `ASME B16.34` — which is precisely what a technical evaluatio
 must find. A chunk retrieved by both methods accumulates score from each and is
 tagged `hybrid`.
 
-### 2. _(pending)_ Cloud Managed MCP Server
+### 2. Cloud Managed MCP Server
 
-Not yet wired. See "Known gaps" below.
+**Where:** [`.mcp.json`](../.mcp.json)
+
+The Managed MCP Server gives an agent a direct, governed channel to the cluster —
+schema exploration, index recommendations, query plans and read-only SQL —
+without a second data-plane path. Access runs through CockroachDB Cloud's own
+authentication and RBAC rather than a bespoke credential.
+
+```json
+{
+  "mcpServers": {
+    "cockroachdb-cloud": {
+      "type": "http",
+      "url": "https://cockroachlabs.cloud/mcp",
+      "headers": { "mcp-cluster-id": "<cluster-id>" }
+    }
+  }
+}
+```
+
+Authenticate with `/mcp` in Claude Code, then choose the permission level.
+
+**We deliberately grant read-only.** The application writes through its own
+connection, where the deterministic policy layer and the four human approval
+gates sit in the path of every mutation. An agent channel that could write to
+`purchase_requisitions` or `approvals` would route around exactly the controls
+this system exists to enforce. Read-only MCP gives an agent full visibility into
+the memory layer while leaving mutation to the audited path — which is the same
+principle as sealed bids and `ALLOW_AUTOMATED_PO_CREATION=false`.
+
+### 3. ccloud CLI
+
+**Where:** [`infra/ccloud/provision.sh`](../infra/ccloud/provision.sh)
+
+The cluster's control plane is scripted, not clicked. `ccloud` creates the
+cluster, creates the database, resolves the connection string and fetches the CA
+certificate, so the deployment is reproducible from a shell:
+
+```bash
+brew install cockroachdb/tap/ccloud
+ccloud auth login
+./infra/ccloud/provision.sh
+```
+
+The cluster is **BASIC on AWS `us-east-1`** — the same cloud and region as the
+Bedrock endpoint the agent calls, so the memory layer and the model sit next to
+each other rather than across a public hop.
+
+#### One operational note worth recording
+
+The baseline migration fails against a BASIC cluster with the application's
+default 30s statement timeout:
+
+```
+psycopg.errors.QueryCanceled: query execution canceled due to statement timeout
+```
+
+DDL over a network connection to a throttled cluster exceeds a timeout that is
+correct for serving traffic. Raise it for the migration only:
+
+```bash
+DB_STATEMENT_TIMEOUT_MS=600000 make migrate
+```
+
+The baseline is `metadata.create_all(checkfirst=True)`, so a partially applied
+migration resumes cleanly rather than needing a teardown.
 
 ## AWS services
 
@@ -116,10 +180,14 @@ years later against the exact evidence that produced it.
 
 Stated plainly rather than left for a judge to discover:
 
-- **Second CockroachDB tool.** Only Distributed Vector Indexing is wired today.
-  The Managed MCP Server requires a CockroachDB Cloud cluster; the local Docker
-  cluster cannot serve it.
-- **Not deployed.** The Terraform is written but unapplied.
+- **Not deployed.** The Terraform describing the ECS topology is written but
+  unapplied; the running demo is the Cloud cluster plus a local application
+  process.
+- **Two clusters, deliberately.** The CockroachDB Cloud cluster carries the
+  MCP-connected demo at `small` scale. The local single-node cluster holds the
+  180k-line history used for the scale and benchmark figures, because seeding
+  that volume across a network into a BASIC cluster is slow and proves nothing
+  extra. Both run identical schema and identical code; `DATABASE_URL` selects.
 - **Embeddings are lexical, not semantic, by default.** `EMBEDDING_BACKEND=hashing`
   uses hashed word and character n-grams — deterministic, free and offline, and
   genuinely effective for part descriptions, but it does not know that "SS" means
