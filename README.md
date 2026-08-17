@@ -1,5 +1,8 @@
 # ProcureGuard
 
+**Live demo:** <http://ec2-54-204-112-30.compute-1.amazonaws.com> ·
+**Tool map:** [docs/hackathon.md](docs/hackathon.md)
+
 A human-in-the-loop procurement agent for manufacturing companies. It takes a
 purchase requisition and carries it to a ready-to-release purchase order:
 validating it against SAP master data, researching what the company has paid

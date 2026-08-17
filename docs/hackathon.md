@@ -1,8 +1,32 @@
 # CockroachDB × AWS Hackathon — tools used
 
+**Live demo:** <http://ec2-54-204-112-30.compute-1.amazonaws.com>
+(pick an identity in the top-right, then work a case)
+
 This document maps the hackathon requirements onto the code, so each claim can be
 checked rather than taken on trust. Every command below is runnable against a
 local stack brought up with `make up`.
+
+## Verified end to end
+
+Against the deployed instance and the CockroachDB Cloud cluster behind it:
+
+| Check | Result |
+| --- | --- |
+| `health/ready` | `status: ok`, CockroachDB Cloud node, `vector_backend: native` |
+| Schema | 46 tables; 3 native `vector` columns; 3 C-SPANN ANN indexes |
+| Data | 800 materials, 90 vendors, 25,000 PO lines |
+| Pipeline | 3 cases through all 15 stages to `ORDER_PLACED`, suppliers awarded |
+| Audit | 18 approvals, 57 decisions, 98 audit entries |
+| Semantic search | `stainless ball valve` → `Ball valve DN98 SS 316L` @ 0.3642 |
+| RBAC | a `BUYER` posting a technical approval gets `403 lacks TECHNICAL_APPROVE` |
+
+`health/ready` reports `temporal: unavailable` on the demo box, and that is
+working as designed: the readiness endpoint reports every dependency separately
+so a degraded one is *visible* rather than inferred. The demo box runs the API and
+approval UI only — the fifteen-stage pipeline is driven by `procureguard demo`,
+which needs no Temporal. Temporal owns durable scheduling for live cases, which a
+public demo does not exercise.
 
 ## CockroachDB tools
 
@@ -144,6 +168,31 @@ VPC resources at all, so the maximum attainable spend is bounded by capability
 rather than by trust. A companion deny-all policy is attached automatically by
 AWS Budgets if spend crosses a threshold.
 
+### Amazon EC2
+
+**Where:** [`infra/ec2/deploy.sh`](../infra/ec2/deploy.sh)
+
+The public demo runs on a single `t4g.micro` in `us-east-1`, configured entirely
+from user-data: no ALB, no NAT gateway, no task definitions. A demo for a handful
+of visitors does not need $99/month of networking, and the production topology is
+already described in Terraform for anyone who wants to see it.
+
+Two properties are deliberate rather than lazy:
+
+- **The instance holds no AWS credentials.** It runs
+  `LLM_BACKEND=deterministic`, so its only secret is the database URL. Someone
+  who compromises the demo box gets an app and a Basic cluster — not the Bedrock
+  key.
+- **No inbound SSH.** The box is built from user-data, so there is no
+  administrative surface to defend. Port 80 is the entire attack surface.
+
+The AMI is resolved through SSM (`/aws/service/ami-amazon-linux-latest/...`)
+rather than pinned, and the IAM policy carries an explicit `Deny` on
+`ec2:RunInstances` for anything outside `t4g.nano|micro|small`, so the blast
+radius of a mistake is bounded at roughly $12/month.
+
+Teardown is one command: `./infra/ec2/deploy.sh --terminate`
+
 ### Described in Terraform, not deployed
 
 [`infra/terraform/`](../infra/terraform/) provisions the production topology:
@@ -180,9 +229,19 @@ years later against the exact evidence that produced it.
 
 Stated plainly rather than left for a judge to discover:
 
-- **Not deployed.** The Terraform describing the ECS topology is written but
-  unapplied; the running demo is the Cloud cluster plus a local application
-  process.
+- **The ECS topology is described, not applied.** The running demo is a single
+  `t4g.micro` against the Cloud cluster. [`infra/terraform/`](../infra/terraform/)
+  shows how this would actually be deployed — multi-AZ Fargate, ALB, KMS, SES —
+  and is included as design evidence rather than a running system.
+- **Bedrock is coded and documented but gated.** Anthropic models on Bedrock
+  require a per-account use-case form; until it clears, every model call site
+  logs the failure and the stage proceeds on deterministic parser output. That is
+  the designed behaviour, not a workaround — see the guard in
+  [`requirements.py`](../procureguard/application/requirements.py).
+- **`POST /cases/{id}/requirements/extract` is not idempotent.** Re-running it on
+  a case that already has requirements raises a `UniqueViolation` on
+  `uq_requirement_key` and returns 500. It should supersede the existing active
+  requirements rather than insert alongside them.
 - **Two clusters, deliberately.** The CockroachDB Cloud cluster carries the
   MCP-connected demo at `small` scale. The local single-node cluster holds the
   180k-line history used for the scale and benchmark figures, because seeding
