@@ -553,10 +553,12 @@ def run_pipeline_for_case(
         )
         if case.state == CaseState.WAITING_FOR_AWARD_APPROVAL:
             case.transition(CaseState.PO_RECOMMENDATION, actor="SYSTEM", reason="Award approved")
+            # Negotiated saving, not benchmark variance - see the note in
+            # workflows/activities on why those are not the same number.
             ctx.repos.cases.save(
                 case,
                 awarded_value_base=recommendation.total_amount_base,
-                savings_base=recommendation.savings_vs_benchmark_base,
+                savings_base=recommendation.savings_vs_first_offer_base,
             )
         trace.append(
             {"stage": "15 po_recommendation",
@@ -764,7 +766,12 @@ def _quotation_text(
         base_price = (
             Decimal(str(material.net_weight_kg or 1)) * Decimal(10)
             if material is None
-            else _reference_price(ctx, line.material_code)
+            else _reference_price(
+                ctx,
+                line.material_code,
+                requested_quantity=Decimal(str(line.quantity)),
+                plant_code=getattr(line, "plant_code", "") or "",
+            )
         )
         fx = _demo_fx(ctx, currency)
         unit_price = (base_price * price_factor * fx).quantize(Decimal("0.01"))
@@ -995,18 +1002,52 @@ def _demo_quantity(material: Any, rng: random.Random) -> int:
     return rng.choice([25, 50, 100, 200, 250])
 
 
-def _reference_price(ctx: ServiceContext, material_code: str) -> Decimal:
-    """Anchor a simulated quote to what the company has actually paid.
+def _reference_price(
+    ctx: ServiceContext,
+    material_code: str,
+    *,
+    requested_quantity: Decimal | None = None,
+    plant_code: str = "",
+) -> Decimal:
+    """Anchor a simulated quote to the exact number the evaluation benchmarks against.
 
-    Historical price is used in preference to the material's standard price,
-    because the benchmark the evaluation compares against is derived from
-    history. Anchoring to standard price instead made every simulated bid look
-    several times more expensive than the benchmark and turned every reported
-    saving negative - a defect in the simulation, not in the evaluator.
+    This has now been wrong twice, in the same way each time, so it is worth
+    stating the rule plainly: the simulator must anchor to
+    ``PriceBenchmark.benchmark_unit_price``, not to any other historical
+    statistic.
+
+    The first version used the material's standard price. The second used the
+    weighted average of past purchases - closer, but still not what the evaluator
+    compares against, because ``benchmark_unit_price`` prefers the
+    *quantity-adjusted* price when one can be derived. A requisition normally asks
+    for more than a typical historical order, so the quantity-adjusted price sits
+    below the weighted average, every simulated bid landed above the benchmark, and
+    every reported saving came out negative.
+
+    That was a defect in the simulation, not in the evaluator - but a reader
+    cannot tell those apart from the dashboard, which is precisely why it matters.
+    Anchoring to the same figure means the per-supplier price factors spread around
+    the benchmark instead of sitting above it, and the winning bid is usually below
+    it, as it would be in a real tender.
     """
     from sqlalchemy import select
 
+    from procureguard.application.history_service import HistoricalProcurementService
     from procureguard.infrastructure.db.models import MaterialPlantModel
+
+    if requested_quantity is not None:
+        try:
+            # No case_id: this is a read, and must not record a decision.
+            benchmark = HistoricalProcurementService(ctx).build_benchmark(
+                material_code,
+                requested_quantity=requested_quantity,
+                plant_code=plant_code,
+            )
+            if benchmark.benchmark_unit_price:
+                return Decimal(str(benchmark.benchmark_unit_price))
+        except Exception as exc:  # a simulation must not fail the pipeline
+            log.info("reference_price_benchmark_unavailable", material=material_code,
+                     detail=str(exc)[:200])
 
     stats = ctx.repos.history.get_price_statistics(material_code, months=36)
     for key in ("weighted_avg_unit_price", "median_unit_price", "avg_unit_price"):

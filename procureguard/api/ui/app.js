@@ -117,44 +117,26 @@ function show(viewName) {
 }
 
 // ── how it works ────────────────────────────────────────────────────────────
-// A deliberately static orientation page. Anyone opening this tool cold needs to
-// know what it refuses to do before the rest of the screens mean anything.
+// The orientation page, and it gets about twenty seconds of a viewer's attention.
+// An earlier version explained everything in full sentences and was unreadable at
+// a glance, which defeated the point: this has to be *scanned*, so the prose is
+// cut to short phrases and the detail lives in the docs.
 
-const AS_IS = [
-  ['The requester types the requirement into a spreadsheet and raises a PR.',
-   'Forty characters of short text is all the buyer gets.'],
-  ['A buyer checks each line against the material master by hand — does the code exist, is it extended to this plant, is it blocked, obsolete, or made in-house?',
-   'Minutes per line, and the checks are the first thing dropped under deadline.'],
-  ['The buyer hunts for what the company last paid, across years of purchase orders.',
-   'The price memory is the most valuable asset in the department and the least reachable. Usually the search is abandoned and the buyer works from memory.'],
-  ['An RFQ is assembled by hand and emailed to whichever suppliers come to mind.',
-   'Capable suppliers who were never asked before are never asked again.'],
-  ['Non-responders are chased by phone, if anyone remembers to chase them.', ''],
-  ['Quotations are retyped into a comparison sheet — units, currencies and incoterms converted manually.',
-   'A transcription error here decides who wins the order.'],
-  ['The technical sheet is emailed to engineering; the buyer waits for T1 / T2 / T3.', ''],
-  ['Cleared offers are collated commercially and ranked P1 / P2.',
-   'Whoever builds the sheet has already seen the prices while judging the technical fit.'],
-  ['Negotiation happens on the phone. The outcome lands in the sheet.', ''],
-  ['The PO is typed into SAP and the pack is filed on a shared drive.',
-   'The reasoning is lost the moment the file closes. Next year it starts again from nothing.'],
-];
-
-const TO_BE = [
-  ['Drop the same sheet here. Columns are matched by alias, so SAP names (<span class="mono">matnr, werks, meins</span>) parse directly.', ''],
-  ['Every line is validated against the master: plant extension, blocked and obsolete status, in-house parts, unit convertibility, minimum lot size, lead time.',
-   'A line it cannot resolve is stopped, not guessed.'],
-  ['Price history is queried out of the purchase-order archive — a bounded, indexed read, not a table scan.',
-   'Twelve rows of what was actually paid, per material.'],
-  ['Suppliers are shortlisted by capability using vector search over the vendor master, not only by who was used last time.', ''],
-  ['The RFQ is drafted and <b>held</b>. A human with the e-mail permission releases it.', ''],
-  ['Follow-ups fire on a durable timer that survives a restart or a redeploy.', ''],
-  ['Quotations are normalised — units, currency and incoterms — with Decimal arithmetic against an audited unit table.', ''],
-  ['The technical comparison is built while every commercial payload is still encrypted.',
-   'The agent physically cannot read a price while judging technical compliance.'],
-  ['Prices are unsealed only after a human approves the technical evaluation.', ''],
-  ['Negotiation and the PO are drafted for a human to release. ProcureGuard never writes to SAP.',
-   'The case, its evidence and its reasoning stay queryable for years.'],
+const CONTRAST = [
+  ['Validate every line against the ERP master',
+   'By hand, minutes a line', 'Seconds, and it refuses to guess'],
+  ['Find what we last paid',
+   'Buried in years of POs — usually skipped', 'Queried, indexed, 12 rows per material'],
+  ['Choose who to ask',
+   'Whoever comes to mind', 'Ranked by capability, using vector search'],
+  ['Issue the RFQ and chase it',
+   'Manual email, manual follow-up', 'Drafted and held; reminders on a durable timer'],
+  ['Compare the offers',
+   'Retyped into a spreadsheet', 'Units, currency and incoterms normalised'],
+  ['Keep prices out of the technical call',
+   'The same person sees both', 'Bids encrypted until engineering signs off'],
+  ['Decide',
+   'Reasoning lost when the file closes', 'Four human gates, every one audited'],
 ];
 
 const STAGES = [
@@ -170,43 +152,35 @@ function renderStory() {
   el.innerHTML = `
     <div class="hero">
       <div class="kicker">Agentic memory for industrial procurement</div>
-      <h2>A purchase requisition becomes a ready-to-release purchase order — without the agent ever approving anything.</h2>
+      <h2>A requisition becomes a ready-to-release purchase order.<br>
+          The agent never approves anything.</h2>
       <p class="lede">
-        ProcureGuard is a human-in-the-loop sourcing agent for manufacturers. It validates a
-        requisition against ERP master data, recalls what the company has paid before,
-        shortlists and invites suppliers, chases replies, evaluates bids technically and
-        commercially, negotiates, and drafts the purchase order. Four gates require an
-        authenticated human, and a deterministic policy layer — not a prompt — decides
-        that they are required.
+        Procurement teams re-derive the same decision every year, because the memory of
+        what they paid — and why — is scattered across purchase orders and shared drives.
+        ProcureGuard keeps that memory in CockroachDB and <b>queries</b> it.
       </p>
       <div class="row">
         <button class="btn primary" onclick="switchTab('cases')">Drop a requisition</button>
-        <button class="btn" onclick="switchTab('dashboard')">See what is waiting on a human</button>
+        <button class="btn" onclick="switchTab('dashboard')">What is waiting on a human</button>
         <span id="story-badges" class="badges"></span>
       </div>
     </div>
 
-    <p class="section-title">The problem</p>
-    <div class="grid cols-2">
-      <div class="panel bad">
-        <h3>How a materials requisition is sourced today</h3>
-        <p class="muted" style="font-size:.83rem">
-          The path a requisition takes through an engineering and procurement team, and
-          what each step costs.
-        </p>
-        <ol class="flow">
-          ${AS_IS.map(([step, cost]) => `<li>${step}${cost ? `<span class="cost">${cost}</span>` : ''}</li>`).join('')}
-        </ol>
-      </div>
-      <div class="panel good">
-        <h3>The same requisition, with ProcureGuard</h3>
-        <p class="muted" style="font-size:.83rem">
-          Same ten steps. The agent does the retrieval and the arithmetic; the human keeps
-          every decision that commits money.
-        </p>
-        <ol class="flow">
-          ${TO_BE.map(([step, win]) => `<li>${step}${win ? `<span class="win">${win}</span>` : ''}</li>`).join('')}
-        </ol>
+    <div class="card">
+      <header>
+        <h2>Sourcing one requisition</h2>
+        <div class="row">
+          <span class="pill danger">today</span>
+          <span class="pill ok">with ProcureGuard</span>
+        </div>
+      </header>
+      <div class="contrast">
+        ${CONTRAST.map(([step, today, now]) => `
+          <div class="c-row">
+            <div class="c-step">${step}</div>
+            <div class="c-old">${today}</div>
+            <div class="c-new">${now}</div>
+          </div>`).join('')}
       </div>
     </div>
 
@@ -221,88 +195,61 @@ function renderStory() {
             <span class="n">${String(i + 1).padStart(2, '0')}</span>${label}
           </div>`).join('')}
       </div>
-      <div class="callout" style="margin-top:1rem">
-        The four gates are <b>RFQ release</b>, <b>technical approval</b>,
-        <b>negotiation authority</b> and <b>award &amp; PO</b>. They are enforced by role
-        permission, not by convention: a buyer who posts a technical approval receives
-        <span class="mono">403 lacks TECHNICAL_APPROVE</span>.
-        <span class="mono">ALLOW_AUTOMATED_PO_CREATION</span> and
-        <span class="mono">ALLOW_AUTOMATED_EMAIL_SEND</span> both ship <b>false</b>.
-      </div>
-    </div>
-
-    <p class="section-title">The agent, and what orchestrates it</p>
-    <div class="card">
-      <p>
-        Fifteen application stages run as <b>Temporal</b> activities inside one durable
-        workflow per case, so a sourcing case that waits three weeks for a supplier reply
-        survives restarts and redeploys without losing its place — the workflow id is
-        <span class="mono">procurement-{case_id}</span>.
-      </p>
-      <p class="muted">
-        There is deliberately no agent framework in the path. Each stage runs a
-        deterministic parser first and asks a model only for the remainder, so
-        extraction may be probabilistic while every decision — unit conversion,
-        compliance, ranking, approval thresholds — is ordinary audited code. With
-        <span class="mono">LLM_BACKEND=deterministic</span> the whole pipeline still runs,
-        which is how the test suite runs it.
+      <p class="note">
+        <b>RFQ release · technical approval · negotiation authority · award &amp; PO.</b>
+        Enforced by role permission, not convention — a buyer posting a technical
+        approval gets <span class="mono">403</span>. No single person can take a
+        requisition to an order.
       </p>
     </div>
 
-    <p class="section-title">Built on</p>
     <div class="grid cols-2">
       <div class="tech crdb">
         <h4><span class="dot"></span>CockroachDB — the memory</h4>
         <ul>
-          <li><b>Native <span class="mono">VECTOR</span> columns with C-SPANN ANN indexes</b>
-              on materials, vendors and document chunks. Capability is probed at start-up
-              and falls back to JSONB on an older cluster rather than failing to boot.</li>
-          <li><b>Hybrid retrieval.</b> Vector recall is merged with keyword precision by
-              reciprocal rank fusion, because pure vector search misses exact designations
-              like <span class="mono">ASME B16.34</span> — which is what a technical
-              evaluation has to find.</li>
-          <li><b>Bitemporal and append-only.</b> Evidence is never updated in place; a
-              change is a new version or a new claim, and a re-import supersedes rather
-              than destroys. A decision can be replayed years later against the exact
-              evidence that produced it.</li>
-          <li><b>Memory is queried, never loaded.</b> Millions of purchase-order lines
-              stay in the database. A benchmark request returns twelve rows through a
-              covering index. The model never sees a table.</li>
-          <li><b>Cloud BASIC on AWS us-east-1</b>, provisioned by <span class="mono">ccloud</span>,
-              with the Managed MCP Server attached <b>read-only</b> — an agent gets full
-              visibility while every mutation stays on the audited path.</li>
+          <li><b>Native <span class="mono">VECTOR</span> columns, C-SPANN indexes</b> on
+              materials, vendors and document chunks</li>
+          <li><b>Hybrid search</b> — vector recall fused with keyword precision, because
+              vectors alone miss <span class="mono">ASME B16.34</span></li>
+          <li><b>Append-only with provenance</b> — a decision can be replayed years later
+              against the evidence that produced it</li>
+          <li><b>Queried, never loaded</b> — millions of PO lines stay in the database;
+              the model never sees a table</li>
+          <li><b>Cloud BASIC on AWS</b>, provisioned by <span class="mono">ccloud</span>,
+              Managed MCP Server attached read-only</li>
         </ul>
       </div>
       <div class="tech aws">
         <h4><span class="dot"></span>AWS — the compute</h4>
         <ul>
-          <li><b>Amazon Bedrock</b> runs requirement extraction, compliance location and
-              negotiation drafting. Every call returns model id, token counts and latency,
-              so no model interaction is anonymous — and every call site is guarded, so the
-              stage proceeds on parser output if Bedrock is unreachable.</li>
-          <li><b>Amazon EC2</b> runs this demo: one <span class="mono">t4g.small</span>
-              configured entirely from user-data, carrying the API, a Temporal worker,
-              Temporal and its Postgres. No inbound SSH, and no AWS credentials on the box.</li>
-          <li><b>IAM least privilege plus AWS Budgets.</b> The credential cannot create
-              anything larger than a <span class="mono">t4g.small</span>, and crossing the
-              spend threshold attaches a deny-all policy automatically.</li>
-          <li><b>Terraform</b> describes the production topology — Fargate, ALB, KMS
-              customer-managed keys for sealed bids, SES receipt rules. Included as design
-              evidence; a demo does not need a NAT gateway.</li>
+          <li><b>Bedrock</b> for extraction and negotiation drafting, every call audited
+              for model, tokens and latency</li>
+          <li><b>EC2</b> — one <span class="mono">t4g.small</span> built entirely from
+              user-data. No inbound SSH, no AWS keys on the box</li>
+          <li><b>IAM + Budgets</b> — the credential cannot exceed a
+              <span class="mono">t4g.small</span>, and crossing the spend cap attaches a
+              deny-all policy</li>
+          <li><b>Terraform</b> describes the production topology — Fargate, ALB, KMS, SES —
+              as design evidence, not applied</li>
         </ul>
       </div>
     </div>
 
-    <div class="callout sealed-note">
-      <b>Sealed bids are encrypted, not merely flagged.</b> Until a human approves the
-      technical evaluation, each supplier's commercial payload is encrypted under a
-      per-bid data key bound to the case. Price cannot influence a technical judgement
-      even under a prompt injection — and supplier documents are treated as hostile
-      input throughout, screened for injection, outcome steering, bank-detail fraud and
-      lookalike sender domains before they reach a model.
+    <div class="grid cols-2">
+      <div class="callout sealed-note">
+        <b>Sealed bids are encrypted, not flagged.</b> Commercial payloads stay encrypted
+        under a per-bid key until a human approves the technical evaluation, so price
+        cannot sway a technical judgement even under prompt injection.
+      </div>
+      <div class="callout">
+        <b>The model is a supplement.</b> Every stage runs a deterministic parser first
+        and asks a model only for the remainder, so extraction may be probabilistic while
+        every decision is audited code. This host runs parser-only — it holds no AWS
+        credentials on purpose — and the pipeline is complete either way.
+      </div>
     </div>`;
 
-  // The badges are live rather than decorative: this is the running configuration.
+  // Live, not decorative: this is the running configuration.
   api('/health/ready').then((health) => {
     const box = document.getElementById('story-badges');
     if (!box) return;
@@ -327,7 +274,16 @@ async function renderDashboard() {
     ]);
 
     const awaiting = cases.items.filter((c) => HUMAN_GATES.has(c.state));
-    const savings = cases.items.reduce((sum, c) => sum + Number(c.savings_base || 0), 0);
+    // Only an awarded case has a saving: the figure is set when the PO is
+    // recommended. Summing it over every case counted zeros from cases that have
+    // not been awarded yet, which made the average look smaller than it is.
+    const awarded = cases.items.filter((c) => Number(c.awarded_value_base) > 0);
+    const savings = awarded.reduce((sum, c) => sum + Number(c.savings_base || 0), 0);
+    // A negative total is a real outcome - the market came in above what we last
+    // paid - so it is shown as such rather than clamped at zero, and labelled as
+    // a variance rather than as a saving.
+    const savingsClass = savings < 0 ? 'stat attention' : 'stat';
+    const savingsLabel = savings < 0 ? 'Negotiated (adverse)' : 'Negotiated savings';
 
     el.innerHTML = `
       <div class="grid cols-4">
@@ -335,7 +291,11 @@ async function renderDashboard() {
         <div class="stat"><div class="value">${summary.in_flight}</div><div class="label">In flight</div></div>
         <div class="stat ${awaiting.length ? 'attention' : ''}">
           <div class="value">${awaiting.length}</div><div class="label">Awaiting you</div></div>
-        <div class="stat"><div class="value">${money(savings)}</div><div class="label">Recorded savings</div></div>
+        <div class="${savingsClass}">
+          <div class="value">${money(Math.abs(savings))}</div>
+          <div class="label">${savingsLabel}</div>
+          <div class="sublabel">${awarded.length} awarded case(s)</div>
+        </div>
       </div>
 
       ${awaiting.length ? `
@@ -567,7 +527,7 @@ function renderCaseDetail(d) {
       <div class="grid cols-4">
         <div class="stat"><div class="value">${money(c.estimated_value_base)}</div><div class="label">Estimated ${esc(c.base_currency)}</div></div>
         <div class="stat"><div class="value">${Number(c.awarded_value_base) ? money(c.awarded_value_base) : '—'}</div><div class="label">Awarded</div></div>
-        <div class="stat"><div class="value">${Number(c.savings_base) ? money(c.savings_base) : '—'}</div><div class="label">Savings vs benchmark</div></div>
+        <div class="stat"><div class="value">${Number(c.savings_base) ? money(c.savings_base) : '—'}</div><div class="label">Negotiated saving</div></div>
         <div class="stat"><div class="value">${c.negotiation_round}</div><div class="label">Negotiation rounds</div></div>
       </div>
     </div>
@@ -1479,12 +1439,17 @@ function switchTab(view) {
 async function loadBackendBadges() {
   try {
     const health = await api('/health/ready');
+    // Three badges, not five. The adapter names for mail and the language model
+    // were implementation detail reported as though it were status: a header
+    // reading "llm: deterministic" says nothing useful about whether the system
+    // is healthy, and reads as "no model here" when the truth is that the model
+    // is a guarded supplement and this host deliberately holds no AWS
+    // credentials. Where that matters it is explained in words, on How it works.
     document.getElementById('backend-badges').innerHTML = `
       <span class="pill ${health.status === 'ok' ? 'ok' : 'warn'}">${esc(health.status)}</span>
-      <span class="pill">db: ${esc(health.backends.vector)} vectors</span>
-      <span class="pill">llm: ${esc(health.backends.llm)}</span>
-      <span class="pill">mail: ${esc(health.backends.email)}</span>
-      <span class="pill ${health.temporal.status === 'ok' ? 'ok' : 'warn'}">temporal: ${esc(health.temporal.status)}</span>`;
+      <span class="pill ${health.database.status === 'ok' ? 'ok' : 'danger'}"
+            title="${esc(health.database.server || '')}">CockroachDB · ${esc(health.backends.vector)} vectors</span>
+      <span class="pill ${health.temporal.status === 'ok' ? 'ok' : 'warn'}">Temporal · ${esc(health.temporal.status)}</span>`;
   } catch {
     document.getElementById('backend-badges').innerHTML = '<span class="pill danger">API unreachable</span>';
   }

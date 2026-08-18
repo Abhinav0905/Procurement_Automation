@@ -128,7 +128,7 @@ class PoRecommendationService:
         satisfied, missing = self.ctx.policy.award_chain_satisfied(chain, approvals)
 
         savings_vs_benchmark, savings_vs_first = self._savings(
-            case_id, winner, benchmarks, ranking
+            case_id, winner, benchmarks, ranking, offers=offers
         )
         justification = self._justification(
             case=case,
@@ -437,11 +437,28 @@ class PoRecommendationService:
         winner: Any,
         benchmarks: dict[str, PriceBenchmark],
         ranking: RankingResult,
+        offers: list[Any] | None = None,
     ) -> tuple[Decimal, Decimal]:
+        """Savings on two comparisons, each made on a single basis.
+
+        The benchmark is a *net* price: historical unit price times the requested
+        quantity. ``winner.total_base`` is the ranking total, which on a TCO basis
+        already carries freight, duty, payment-term financing and lead-time and
+        quality adjustments. Subtracting one from the other compared a landed cost
+        against an ex-works price and reported the difference as though the buyer
+        had lost money - so a normal award showed a negative saving no matter how
+        well it was negotiated.
+
+        The comparison against the benchmark therefore uses the winner's net
+        extended price. The TCO remains what the *ranking* is decided on, which is
+        correct: you choose a supplier on landed cost and you measure the price
+        against history on price.
+        """
         benchmark_total = _benchmark_total(benchmarks)
+        net_total = _net_price_total(offers, winner)
         savings_vs_benchmark = (
-            (benchmark_total - winner.total_base).quantize(Decimal("0.01"))
-            if benchmark_total is not None
+            (benchmark_total - net_total).quantize(Decimal("0.01"))
+            if benchmark_total is not None and net_total is not None
             else ZERO
         )
         rounds = self.ctx.repos.negotiations.list_rounds(case_id)
@@ -703,6 +720,24 @@ class PoRecommendationService:
             )
             proposal_ids.append(proposal.id)
         return proposal_ids
+
+
+def _net_price_total(offers: list[Any] | None, winner: Any) -> Decimal | None:
+    """The winner's extended price before freight, duty and financing.
+
+    Comparable with a historical price benchmark, which is what it exists for.
+    Falls back to the ranking total when no normalised offer survives, which keeps
+    the figure defined rather than silently zero - but that fallback mixes bases,
+    so it is only reached when there is nothing better.
+    """
+    lines = [
+        o for o in (offers or [])
+        if getattr(o, "vendor_id", "") == getattr(winner, "vendor_id", "")
+        and getattr(o, "ext_price_base", None) is not None
+    ]
+    if not lines:
+        return Decimal(str(winner.total_base)) if winner is not None else None
+    return sum((Decimal(str(o.ext_price_base)) for o in lines), ZERO).quantize(Decimal("0.01"))
 
 
 def _benchmark_total(benchmarks: dict[str, PriceBenchmark]) -> Decimal | None:

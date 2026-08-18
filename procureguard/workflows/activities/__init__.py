@@ -593,11 +593,19 @@ async def po_recommendation_activity(args: dict[str, Any]) -> dict[str, Any]:
                 CaseState.PO_RECOMMENDATION, actor="SYSTEM", reason="Award approved"
             )
             case.awarded_value_base = result.total_amount_base
-            case.savings_base = result.savings_vs_benchmark_base
+            # The case-level saving is the *negotiated* saving - first offer minus
+            # final, both on the same basis - not the variance against the
+            # historical benchmark. Two different things were being reported as one
+            # number, and the benchmark comparison is the weaker of the two: it
+            # spans years, currencies and order quantities, so a normal award can
+            # sit above it for entirely legitimate reasons. Benchmark variance is
+            # still recorded on the PO recommendation, where it belongs, as a
+            # variance rather than as a loss.
+            case.savings_base = result.savings_vs_first_offer_base
             ctx.repos.cases.save(
                 case,
                 awarded_value_base=result.total_amount_base,
-                savings_base=result.savings_vs_benchmark_base,
+                savings_base=result.savings_vs_first_offer_base,
             )
         return {**result.to_dict(), "status": "DRAFT_ONLY"}
 

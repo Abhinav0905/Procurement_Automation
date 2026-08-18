@@ -18,7 +18,7 @@ Against the deployed instance and the CockroachDB Cloud cluster behind it:
 | Schema | 46 tables; 3 native `vector` columns; 3 C-SPANN ANN indexes |
 | Data | 800 materials, 90 vendors, 25,000 PO lines |
 | Pipeline | 3 cases through all 15 stages to `ORDER_PLACED`, suppliers awarded |
-| Audit | 18 approvals, 57 decisions, 98 audit entries |
+| Audit | every approval, decision and state change recorded per case |
 | Semantic search | `stainless ball valve` → `Ball valve DN98 SS 316L` @ 0.3642 |
 | RBAC | a `BUYER` posting a technical approval gets `403 lacks TECHNICAL_APPROVE` |
 | Temporal | `health/ready` reports `temporal: ok` at `temporal:7233` |
@@ -272,6 +272,15 @@ Stated plainly rather than left for a judge to discover:
   180k-line history used for the scale and benchmark figures, because seeding
   that volume across a network into a BASIC cluster is slow and proves nothing
   extra. Both run identical schema and identical code; `DATABASE_URL` selects.
+- **Two savings figures, deliberately kept apart.** The case-level saving is the
+  *negotiated* saving: first offer minus final award, both on the same basis. The
+  variance against historical prices is recorded separately on the PO
+  recommendation, because it spans years, currencies and order quantities and a
+  legitimate award can sit above it. Reporting one number for both is what made
+  the dashboard show a negative "recorded saving" — a measurement error, since
+  fixed. Simulated quotes still do not reliably land below the historical
+  benchmark, so that variance is often positive in the demo data; the negotiated
+  figure is the defensible one.
 - **Embeddings are lexical, not semantic, by default.** `EMBEDDING_BACKEND=hashing`
   uses hashed word and character n-grams — deterministic, free and offline, and
   genuinely effective for part descriptions, but it does not know that "SS" means

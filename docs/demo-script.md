@@ -147,9 +147,9 @@ their names as Temporal recorded them. Then **Open in Temporal UI ↗** on port
 
 ### 6 · A human places the order — 2:30–2:50
 
-Open case **`PG-PR-2026-0851`**, already at `WAITING_FOR_AWARD_APPROVAL`. It has
-been through RFQ, technical evaluation, unsealing, ranking and one negotiation
-round that took **9.76%** off the baseline.
+Open case **`PG-PR-2026-0883`**, already at `WAITING_FOR_AWARD_APPROVAL`. It has
+been through RFQ, technical evaluation, unsealing, ranking and a negotiation round
+that took a real percentage off the first offer — the figure is on the case.
 
 Switch to **Jordan — Procurement head** and approve the award. Say why you are
 switching: the senior buyer who ran the RFQ is not allowed to authorise the order.
@@ -166,8 +166,8 @@ One caveat worth knowing: Temporal's history lives on the demo host, not in
 CockroachDB. A case whose workflow was started on an earlier instance of the host
 will report its history as unavailable while the case itself remains complete and
 correct — the case is authoritative in CockroachDB either way. Cases you upload
-during the take are unaffected. `PG-PR-2026-089*` are throughput probes from
-deployment testing; ignore them.
+during the take are unaffected. `PG-PR-2026-0881` and `0882` are completed orders, there so
+the dashboard is not empty.
 
 ## Two things that will bite you
 
