@@ -3,7 +3,7 @@
 Three minutes, four files, one browser tab. Nothing here is mocked: the host runs
 Temporal and a worker, and the database is CockroachDB Cloud.
 
-**Live demo:** <http://ec2-3-86-224-51.compute-1.amazonaws.com>
+**Live demo:** <http://ec2-54-167-208-88.compute-1.amazonaws.com>
 
 ## Before you press record
 
@@ -147,7 +147,7 @@ their names as Temporal recorded them. Then **Open in Temporal UI ↗** on port
 
 ### 6 · A human places the order — 2:30–2:50
 
-Open case **`PG-PR-2026-0883`**, already at `WAITING_FOR_AWARD_APPROVAL`. It has
+Open case **`PG-PR-2026-0884`**, already at `WAITING_FOR_AWARD_APPROVAL`. It has
 been through RFQ, technical evaluation, unsealing, ranking and a negotiation round
 that took a real percentage off the first offer — the figure is on the case.
 
@@ -166,7 +166,7 @@ One caveat worth knowing: Temporal's history lives on the demo host, not in
 CockroachDB. A case whose workflow was started on an earlier instance of the host
 will report its history as unavailable while the case itself remains complete and
 correct — the case is authoritative in CockroachDB either way. Cases you upload
-during the take are unaffected. `PG-PR-2026-0881` and `0882` are completed orders, there so
+during the take are unaffected. `PG-PR-2026-0882` and `0885` are completed orders, there so
 the dashboard is not empty.
 
 ## Two things that will bite you

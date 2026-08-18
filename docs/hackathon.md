@@ -1,6 +1,6 @@
 # CockroachDB × AWS Hackathon — tools used
 
-**Live demo:** <http://ec2-3-86-224-51.compute-1.amazonaws.com>
+**Live demo:** <http://ec2-54-167-208-88.compute-1.amazonaws.com>
 (pick an identity in the top-right, then work a case) ·
 **Three-minute walkthrough:** [demo-script.md](demo-script.md)
 
@@ -196,7 +196,7 @@ of visitors does not need $99/month of networking, and the production topology i
 already described in Terraform for anyone who wants to see it.
 
 The running container set is published at
-[`/ui/stack.txt`](http://ec2-3-86-224-51.compute-1.amazonaws.com/ui/stack.txt),
+[`/ui/stack.txt`](http://ec2-54-167-208-88.compute-1.amazonaws.com/ui/stack.txt),
 refreshed every 60 seconds, so the five-container claim above can be checked
 rather than taken on trust. It carries names, status, ports, free memory and the
 Temporal UI log — and deliberately no secrets, because the host has no inbound
@@ -272,6 +272,11 @@ Stated plainly rather than left for a judge to discover:
   180k-line history used for the scale and benchmark figures, because seeding
   that volume across a network into a BASIC cluster is slow and proves nothing
   extra. Both run identical schema and identical code; `DATABASE_URL` selects.
+- **RFQ numbers are not allocated safely.** `uq_rfq_number` is violated in two
+  situations: two cases driven concurrently race for the same number, and a
+  sequence derived from existing rows can re-issue a number after rows are
+  deleted. Both surfaced while rebuilding the demo data. Real allocation should use
+  a sequence rather than a derived count.
 - **Two savings figures, deliberately kept apart.** The case-level saving is the
   *negotiated* saving: first offer minus final award, both on the same basis. The
   variance against historical prices is recorded separately on the PO
