@@ -1,6 +1,6 @@
 # CockroachDB × AWS Hackathon — tools used
 
-**Live demo:** <http://ec2-54-147-126-1.compute-1.amazonaws.com>
+**Live demo:** <http://ec2-3-86-224-51.compute-1.amazonaws.com>
 (pick an identity in the top-right, then work a case) ·
 **Three-minute walkthrough:** [demo-script.md](demo-script.md)
 
@@ -27,6 +27,8 @@ Against the deployed instance and the CockroachDB Cloud cluster behind it:
 | Temporal history | `/cases/{id}/workflow/history` returns Temporal's own events, activity names resolved |
 | Guardrails | one requisition where 6 lines each fail for a different real master-data reason |
 | Award gate | a case driven to `WAITING_FOR_AWARD_APPROVAL` after a negotiation round taking 9.76% off |
+| Temporal Web UI | `:8088` serves the console; its API lists the running `ProcurementWorkflow` |
+| Container set | `/ui/stack.txt` shows all five containers up |
 
 The demo is not a simulation. Dropping a requisition on the live instance with
 "start workflow" ticked starts a real Temporal execution:
@@ -194,7 +196,7 @@ of visitors does not need $99/month of networking, and the production topology i
 already described in Terraform for anyone who wants to see it.
 
 The running container set is published at
-[`/ui/stack.txt`](http://ec2-54-147-126-1.compute-1.amazonaws.com/ui/stack.txt),
+[`/ui/stack.txt`](http://ec2-3-86-224-51.compute-1.amazonaws.com/ui/stack.txt),
 refreshed every 60 seconds, so the five-container claim above can be checked
 rather than taken on trust. It carries names, status, ports, free memory and the
 Temporal UI log — and deliberately no secrets, because the host has no inbound

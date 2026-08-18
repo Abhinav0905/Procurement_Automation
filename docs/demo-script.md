@@ -3,7 +3,7 @@
 Three minutes, four files, one browser tab. Nothing here is mocked: the host runs
 Temporal and a worker, and the database is CockroachDB Cloud.
 
-**Live demo:** <http://ec2-54-147-126-1.compute-1.amazonaws.com>
+**Live demo:** <http://ec2-3-86-224-51.compute-1.amazonaws.com>
 
 ## Before you press record
 
@@ -161,6 +161,13 @@ Close on:
 > The purchase order is drafted, not placed. ProcureGuard never writes to SAP: it
 > emits a draft and an SAP-shaped payload for a human to release.
 > `ALLOW_AUTOMATED_PO_CREATION` ships false.
+
+One caveat worth knowing: Temporal's history lives on the demo host, not in
+CockroachDB. A case whose workflow was started on an earlier instance of the host
+will report its history as unavailable while the case itself remains complete and
+correct — the case is authoritative in CockroachDB either way. Cases you upload
+during the take are unaffected. `PG-PR-2026-089*` are throughput probes from
+deployment testing; ignore them.
 
 ## Two things that will bite you
 
