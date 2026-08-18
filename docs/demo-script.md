@@ -3,7 +3,7 @@
 Three minutes, four files, one browser tab. Nothing here is mocked: the host runs
 Temporal and a worker, and the database is CockroachDB Cloud.
 
-**Live demo:** <http://ec2-44-201-136-91.compute-1.amazonaws.com>
+**Live demo:** <http://ec2-54-147-126-1.compute-1.amazonaws.com>
 
 ## Before you press record
 
@@ -39,9 +39,10 @@ is the product, not an obstacle.
 
 Then:
 
-1. Open the demo URL and set **Acting as → Sam — Senior buyer**. This matters —
-   see the identity table below. Dana, the default, is a plain `BUYER` and cannot
-   release e-mail; if a button looks broken, that is the reason.
+1. Open the demo URL. **Sam — Senior buyer** is the default identity, which is
+   what you want for the first four shots — check the top-right says so. If a
+   button ever looks broken, it is almost always the identity; see the table
+   below.
 2. Check the header badges read `ok`, `native vectors` and `temporal: ok`. If
    Temporal says anything else, stop — the whole point is that it is live.
 3. Run the rehearsal upload once, all the way through, then leave that case alone.

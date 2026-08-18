@@ -1,6 +1,6 @@
 # ProcureGuard
 
-**Live demo:** <http://ec2-44-201-136-91.compute-1.amazonaws.com> ·
+**Live demo:** <http://ec2-54-147-126-1.compute-1.amazonaws.com> ·
 **Tool map:** [docs/hackathon.md](docs/hackathon.md) ·
 **Demo walkthrough:** [docs/demo-script.md](docs/demo-script.md)
 

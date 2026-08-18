@@ -95,14 +95,16 @@ for port in 80 8088; do
     }
 done
 
+# --output text is tab-separated, so normalise before matching.
 open_ports="$(aws ec2 describe-security-groups --region "$REGION" --group-ids "$SG" \
-  --query 'SecurityGroups[0].IpPermissions[].FromPort' --output text)"
-echo "    Ingress open on: $open_ports"
+  --query 'SecurityGroups[0].IpPermissions[].FromPort' --output text | tr '\t' ' ')"
+echo "    Ingress open on:$open_ports"
 for port in 80 8088; do
-  case " $open_ports " in
-    *" $port "*) : ;;
-    *) echo "ERROR tcp/$port is not open on $SG" >&2; exit 1 ;;
-  esac
+  found=""
+  for open in $open_ports; do
+    [ "$open" = "$port" ] && found=yes
+  done
+  [ -n "$found" ] || { echo "ERROR tcp/$port is not open on $SG" >&2; exit 1; }
 done
 
 # ── user-data ───────────────────────────────────────────────────────────────
@@ -112,9 +114,9 @@ USERDATA="$(cat <<EOF
 set -eux
 exec > >(tee /var/log/procureguard-boot.log) 2>&1
 
-# 4 GiB, not 2: the image build compiles wheels while Temporal, its Postgres and
-# the UI are already resident, and the first attempt lost the UI container to the
-# OOM killer during that spike.
+# 4 GiB, not 2: the image build compiles wheels while Temporal and its Postgres
+# are already resident. Headroom for the build, not a fix for anything - the host
+# peaks around 700 MB of 1841 in steady state and barely touches swap.
 dd if=/dev/zero of=/swapfile bs=1M count=4096
 chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
 sysctl -w vm.swappiness=30
@@ -187,13 +189,19 @@ docker run -d --name worker --restart unless-stopped --network pgnet \\
   -v /opt/certs/root.crt:/home/appuser/.postgresql/root.crt:ro \\
   procureguard:demo python -m procureguard.workflows.worker
 
-# Started last, once the image build is finished and memory has settled.
-# TEMPORAL_CSRF_COOKIE_INSECURE is required because this host serves plain HTTP:
-# without it the UI sets a Secure cookie the browser will not return, and the
-# page fails to initialise.
+# No TEMPORAL_CORS_ORIGINS here, and that is the whole reason this container
+# used to die. The image interpolates env vars into config/docker.yaml, and a
+# bare * is an alias indicator in YAML, so '*' corrupted the config and the UI
+# exited before binding a port:
+#
+#   config file corrupted: yaml: line 26: did not find expected alphabetic
+#   or numeric character
+#
+# It is not needed either: the UI is served from the same origin as the backend
+# it calls. TEMPORAL_CSRF_COOKIE_INSECURE is needed, because this host is plain
+# HTTP and the UI would otherwise set a Secure cookie the browser never returns.
 docker run -d --name temporal-ui --restart unless-stopped --network pgnet -p 8088:8080 \\
   -e TEMPORAL_ADDRESS=temporal:7233 \\
-  -e TEMPORAL_CORS_ORIGINS='*' \\
   -e TEMPORAL_CSRF_COOKIE_INSECURE=true \\
   -e TEMPORAL_UI_PORT=8080 \\
   temporalio/ui:2.34.0

@@ -42,7 +42,11 @@ const HUMAN_GATES = new Set([
   'WAITING_FOR_AWARD_APPROVAL',
 ]);
 
-let identity = IDENTITIES[0];
+// Sam, not Dana. SENIOR_BUYER is the only role holding both CASE_CREATE and
+// RFQ_RELEASE / EMAIL_SEND, so it is the one identity that can complete the first
+// thing this UI invites you to do - drop a requisition and release its RFQ -
+// without a switch. Approvals still require someone else, which is the point.
+let identity = IDENTITIES.find((i) => i.roles === 'SENIOR_BUYER') || IDENTITIES[0];
 let currentCaseId = null;
 
 // ── plumbing ────────────────────────────────────────────────────────────────
@@ -1490,6 +1494,7 @@ function init() {
   const select = document.getElementById('actor-select');
   select.innerHTML = IDENTITIES.map(
     (i, index) => `<option value="${index}">${esc(i.label)}</option>`).join('');
+  select.value = String(IDENTITIES.indexOf(identity));
   select.addEventListener('change', (event) => {
     identity = IDENTITIES[Number(event.target.value)];
     toast(`Now acting as ${identity.label}`);

@@ -1,6 +1,6 @@
 # CockroachDB × AWS Hackathon — tools used
 
-**Live demo:** <http://ec2-44-201-136-91.compute-1.amazonaws.com>
+**Live demo:** <http://ec2-54-147-126-1.compute-1.amazonaws.com>
 (pick an identity in the top-right, then work a case) ·
 **Three-minute walkthrough:** [demo-script.md](demo-script.md)
 
@@ -192,6 +192,13 @@ containers — Temporal, its Postgres, the Temporal UI, the API and a worker —
 the demo exercises the durable orchestration path rather than a simulated one. A demo for a handful
 of visitors does not need $99/month of networking, and the production topology is
 already described in Terraform for anyone who wants to see it.
+
+The running container set is published at
+[`/ui/stack.txt`](http://ec2-54-147-126-1.compute-1.amazonaws.com/ui/stack.txt),
+refreshed every 60 seconds, so the five-container claim above can be checked
+rather than taken on trust. It carries names, status, ports, free memory and the
+Temporal UI log — and deliberately no secrets, because the host has no inbound
+SSH and that file is the only window into it.
 
 Two properties are deliberate rather than lazy:
 
