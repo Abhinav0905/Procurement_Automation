@@ -84,6 +84,108 @@ async def query_workflow_state(case_id: str) -> dict[str, Any] | None:
     return payload
 
 
+# Event types worth showing a human. The full history includes task scheduling and
+# completion for every workflow task, which is noise for anyone asking "what has
+# the orchestrator actually done".
+_INTERESTING_EVENTS = (
+    "WorkflowExecutionStarted",
+    "WorkflowExecutionCompleted",
+    "WorkflowExecutionFailed",
+    "WorkflowExecutionContinuedAsNew",
+    "ActivityTaskScheduled",
+    "ActivityTaskStarted",
+    "ActivityTaskCompleted",
+    "ActivityTaskFailed",
+    "ActivityTaskTimedOut",
+    "TimerStarted",
+    "TimerFired",
+    "WorkflowExecutionSignaled",
+)
+
+
+def _event_detail(event: Any) -> str:
+    """Pull the one human-meaningful string out of a history event."""
+    which = event.WhichOneof("attributes")
+    if not which:
+        return ""
+    attrs = getattr(event, which)
+    for path in (
+        ("activity_type", "name"),   # activity scheduled
+        ("workflow_type", "name"),   # execution started
+    ):
+        obj: Any = attrs
+        for part in path:
+            obj = getattr(obj, part, None)
+            if obj is None:
+                break
+        if isinstance(obj, str) and obj:
+            return obj
+    for field in ("signal_name", "timer_id", "activity_id"):
+        value = getattr(attrs, field, "")
+        if value:
+            return str(value)
+    # Activity completion carries no type of its own; it references the scheduling
+    # event, which the caller resolves.
+    scheduled = getattr(attrs, "scheduled_event_id", 0)
+    return f"#{scheduled}" if scheduled else ""
+
+
+async def fetch_workflow_history(case_id: str, *, limit: int = 200) -> dict[str, Any]:
+    """Real Temporal event history for a case, condensed for display.
+
+    This exists so orchestration is verifiable from inside the application rather
+    than only from the Temporal Web UI: the events below are read from Temporal's
+    own history store, not reconstructed from our database.
+    """
+    settings = get_settings()
+    client = await try_get_temporal_client()
+    if client is None:
+        return {"available": False, "detail": "Temporal is unavailable", "events": []}
+
+    workflow_id = settings.temporal_workflow_id(case_id)
+    try:
+        handle = client.get_workflow_handle(workflow_id)
+        description = await handle.describe()
+        raw = [event async for event in handle.fetch_history_events()]
+    except Exception as exc:
+        log.info("workflow_history_unavailable", case_id=case_id, detail=str(exc)[:200])
+        return {"available": False, "detail": str(exc)[:300], "events": []}
+
+    # Activity completions name no activity, so resolve them through the
+    # scheduling event they point back at.
+    scheduled_names: dict[int, str] = {}
+    events: list[dict[str, Any]] = []
+    for event in raw:
+        type_name = event.event_type.name.removeprefix("EVENT_TYPE_")
+        pretty = "".join(part.capitalize() for part in type_name.split("_"))
+        detail = _event_detail(event)
+        if pretty == "ActivityTaskScheduled":
+            scheduled_names[event.event_id] = detail
+        elif detail.startswith("#"):
+            detail = scheduled_names.get(int(detail[1:]), "")
+        if pretty not in _INTERESTING_EVENTS:
+            continue
+        events.append(
+            {
+                "event_id": event.event_id,
+                "event_type": pretty,
+                "detail": detail,
+                "timestamp": event.event_time.ToDatetime().isoformat() + "Z",
+            }
+        )
+
+    return {
+        "available": True,
+        "workflow_id": workflow_id,
+        "run_id": description.run_id,
+        "status": description.status.name if description.status else "UNKNOWN",
+        "task_queue": settings.temporal_task_queue,
+        "started_at": description.start_time.isoformat() if description.start_time else "",
+        "event_count": len(raw),
+        "events": events[-limit:],
+    }
+
+
 async def start_procurement_workflow(
     *,
     case_id: str,

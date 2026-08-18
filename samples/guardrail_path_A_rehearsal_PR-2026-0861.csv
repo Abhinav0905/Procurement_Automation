@@ -1,0 +1,20 @@
+PR Number: PR-2026-0861
+Plant: 1000
+Requester: S. Kulkarni
+Requester Email: s.kulkarni@acme-mfg.example
+Department: Projects - Utilities
+Priority: HIGH
+Justification: Cooling water line modification package for the utilities upgrade.
+Budget Code: WBS-PRJ-2026-07
+Currency: USD
+Required By: 2027-01-15
+
+Sl.No.,Material Code,Item Description,Plant Code,Material Group,Storage Location,Quantity,EOM,Delivery Date,Long Text
+10,RAW-00051,Steel plate 81mm S355JR,1000,MG-RAW,0002,100,KG,2027-01-15,Steel plate 81mm S355JR for the pump baseplate replacement. Mill test certificate EN 10204 3.1 required per heat number. Flame cut edges acceptable.
+20,TOL-00044,Tool holder 121mm HSS,1000,MG-TOOL,0002,100,EA,2027-01-15,Tool holder 121mm high speed steel for the workshop lathe used to reskim the pump shafts. Supply with runout test report.
+30,INS-00041,Flow meter Polycarbonate,1000,MG-ELECTRONIC,0001,5,EA,2027-01-15,Flow meter for the cooling water return header. Range to be confirmed against the pump curve. Supply calibration certificate traceable to national standards.
+40,HYD-00049,Hydraulic cylinder Cast iron,1000,MG-HYD,0001,10,EA,2027-01-15,Double acting hydraulic cylinder cast iron for the sluice gate actuator. Working pressure 160 bar minimum. Supply with rod seal kit and test certificate.
+50,BRG-00001,Tapered roller bearing 198mm,1000,MG-BEARING,0001,8,EA,2027-01-15,Tapered roller bearing 198mm chrome steel 52100 for the cooling water pump drive end. Supply in sealed packaging with batch traceability.
+60,,SS 304 seamless pipe 50NB Sch 40,1000,MG-RAW,0002,60,M,2027-01-15,Seamless austenitic stainless pipe ASTM A312 TP304 50NB Schedule 40 for the cooling water header extension. Mill test certificate EN 10204 3.1 per lot. Random lengths 5 to 6 m acceptable.
+70,TOL-00049,Collet 95mm PCD,1000,MG-BEARING,0002,6,EA,2027-01-15,Collet 95mm PCD for the maintenance workshop lathe. Supply with runout test report.
+80,SEL-00066,Rotary shaft seal 367mm EPDM,1000,MG-SEAL,0001,10,EA,2027-01-15,Rotary shaft seal 367mm EPDM for the cooling water pump shaft. Continuous duty at 80 deg C. Shelf life at least 24 months from despatch. Certificate EN 10204 3.1 required.

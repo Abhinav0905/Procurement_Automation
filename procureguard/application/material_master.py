@@ -222,6 +222,7 @@ class MaterialMasterValidationService:
         self._check_quantity(plant_extension, line, resolution)
         self._check_lead_time(plant_extension, line, resolution)
         self._check_specification(material, line, resolution)
+        self._check_material_group(material, line, resolution)
         self._check_preferred_vendor(line, resolution, plant_code)
 
         if plant_extension is not None:
@@ -482,6 +483,28 @@ class MaterialMasterValidationService:
             resolution.requires_specification = True
             resolution.messages.append(
                 "No specification, drawing or long description is available to put in the RFQ"
+            )
+
+    @staticmethod
+    def _check_material_group(
+        material: MaterialModel, line: PurchaseRequisitionLine, resolution: MaterialResolution
+    ) -> None:
+        """Compare the requester's material group with the master.
+
+        Not blocking: the master is authoritative and sourcing proceeds on it. But
+        a mismatch is worth surfacing, because the material group drives the
+        purchasing group, the approval limits and which suppliers are on the source
+        list — so a wrong group in the requisition usually means the requester had
+        a different part in mind than the code they typed.
+        """
+        requested = (line.requested_material_group or "").strip().upper()
+        if not requested or not material.material_group:
+            return
+        if requested != material.material_group.strip().upper():
+            resolution.messages.append(
+                f"Requisition states material group {requested} but the master records "
+                f"{material.material_group} for {material.material_code}; sourcing follows the "
+                f"master. Confirm the requested part is correct."
             )
 
     def _check_preferred_vendor(

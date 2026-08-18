@@ -23,6 +23,7 @@ from procureguard.api.schemas import (
     to_case_summary,
 )
 from procureguard.api.temporal_client import (
+    fetch_workflow_history,
     query_workflow_state,
     start_procurement_workflow,
     try_signal_workflow,
@@ -221,6 +222,23 @@ async def get_case(
         ],
         workflow=await query_workflow_state(case_id),
     )
+
+
+@router.get("/{case_id}/workflow/history")
+async def workflow_history(
+    case_id: str,
+    ctx: Context,
+    principal: Annotated[Any, Depends(require(Permission.CASE_READ))],
+    limit: int = Query(default=100, ge=1, le=500),
+) -> dict[str, Any]:
+    """Temporal's own event history for this case.
+
+    Read from Temporal rather than reconstructed from our tables, so that the
+    orchestration claim can be checked instead of taken on trust.
+    """
+    if ctx.repos.cases.get_model(case_id) is None:
+        raise NotFoundError(f"Case {case_id} not found")
+    return await fetch_workflow_history(case_id, limit=limit)
 
 
 @router.get("/{case_id}/workflow", response_model=WorkflowStateResponse)

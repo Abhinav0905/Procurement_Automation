@@ -112,6 +112,203 @@ function show(viewName) {
     t.classList.toggle('active', t.dataset.view === viewName));
 }
 
+// ── how it works ────────────────────────────────────────────────────────────
+// A deliberately static orientation page. Anyone opening this tool cold needs to
+// know what it refuses to do before the rest of the screens mean anything.
+
+const AS_IS = [
+  ['The requester types the requirement into a spreadsheet and raises a PR.',
+   'Forty characters of short text is all the buyer gets.'],
+  ['A buyer checks each line against the material master by hand — does the code exist, is it extended to this plant, is it blocked, obsolete, or made in-house?',
+   'Minutes per line, and the checks are the first thing dropped under deadline.'],
+  ['The buyer hunts for what the company last paid, across years of purchase orders.',
+   'The price memory is the most valuable asset in the department and the least reachable. Usually the search is abandoned and the buyer works from memory.'],
+  ['An RFQ is assembled by hand and emailed to whichever suppliers come to mind.',
+   'Capable suppliers who were never asked before are never asked again.'],
+  ['Non-responders are chased by phone, if anyone remembers to chase them.', ''],
+  ['Quotations are retyped into a comparison sheet — units, currencies and incoterms converted manually.',
+   'A transcription error here decides who wins the order.'],
+  ['The technical sheet is emailed to engineering; the buyer waits for T1 / T2 / T3.', ''],
+  ['Cleared offers are collated commercially and ranked P1 / P2.',
+   'Whoever builds the sheet has already seen the prices while judging the technical fit.'],
+  ['Negotiation happens on the phone. The outcome lands in the sheet.', ''],
+  ['The PO is typed into SAP and the pack is filed on a shared drive.',
+   'The reasoning is lost the moment the file closes. Next year it starts again from nothing.'],
+];
+
+const TO_BE = [
+  ['Drop the same sheet here. Columns are matched by alias, so SAP names (<span class="mono">matnr, werks, meins</span>) parse directly.', ''],
+  ['Every line is validated against the master: plant extension, blocked and obsolete status, in-house parts, unit convertibility, minimum lot size, lead time.',
+   'A line it cannot resolve is stopped, not guessed.'],
+  ['Price history is queried out of the purchase-order archive — a bounded, indexed read, not a table scan.',
+   'Twelve rows of what was actually paid, per material.'],
+  ['Suppliers are shortlisted by capability using vector search over the vendor master, not only by who was used last time.', ''],
+  ['The RFQ is drafted and <b>held</b>. A human with the e-mail permission releases it.', ''],
+  ['Follow-ups fire on a durable timer that survives a restart or a redeploy.', ''],
+  ['Quotations are normalised — units, currency and incoterms — with Decimal arithmetic against an audited unit table.', ''],
+  ['The technical comparison is built while every commercial payload is still encrypted.',
+   'The agent physically cannot read a price while judging technical compliance.'],
+  ['Prices are unsealed only after a human approves the technical evaluation.', ''],
+  ['Negotiation and the PO are drafted for a human to release. ProcureGuard never writes to SAP.',
+   'The case, its evidence and its reasoning stay queryable for years.'],
+];
+
+const STAGES = [
+  'PR parse', 'Material master', 'Price history', 'Document ingest',
+  'Requirement extract', 'Supplier shortlist', 'RFQ generation', 'E-mail in / out',
+  'Quote ingestion', 'Technical compare', 'Human gates', 'Normalise offers',
+  'Rank L1/L2/L3', 'Negotiate', 'PO draft',
+];
+const GATE_STAGE_INDEX = 10;
+
+function renderStory() {
+  const el = document.getElementById('view-story');
+  el.innerHTML = `
+    <div class="hero">
+      <div class="kicker">Agentic memory for industrial procurement</div>
+      <h2>A purchase requisition becomes a ready-to-release purchase order — without the agent ever approving anything.</h2>
+      <p class="lede">
+        ProcureGuard is a human-in-the-loop sourcing agent for manufacturers. It validates a
+        requisition against ERP master data, recalls what the company has paid before,
+        shortlists and invites suppliers, chases replies, evaluates bids technically and
+        commercially, negotiates, and drafts the purchase order. Four gates require an
+        authenticated human, and a deterministic policy layer — not a prompt — decides
+        that they are required.
+      </p>
+      <div class="row">
+        <button class="btn primary" onclick="switchTab('cases')">Drop a requisition</button>
+        <button class="btn" onclick="switchTab('dashboard')">See what is waiting on a human</button>
+        <span id="story-badges" class="badges"></span>
+      </div>
+    </div>
+
+    <p class="section-title">The problem</p>
+    <div class="grid cols-2">
+      <div class="panel bad">
+        <h3>How a materials requisition is sourced today</h3>
+        <p class="muted" style="font-size:.83rem">
+          The path a requisition takes through an engineering and procurement team, and
+          what each step costs.
+        </p>
+        <ol class="flow">
+          ${AS_IS.map(([step, cost]) => `<li>${step}${cost ? `<span class="cost">${cost}</span>` : ''}</li>`).join('')}
+        </ol>
+      </div>
+      <div class="panel good">
+        <h3>The same requisition, with ProcureGuard</h3>
+        <p class="muted" style="font-size:.83rem">
+          Same ten steps. The agent does the retrieval and the arithmetic; the human keeps
+          every decision that commits money.
+        </p>
+        <ol class="flow">
+          ${TO_BE.map(([step, win]) => `<li>${step}${win ? `<span class="win">${win}</span>` : ''}</li>`).join('')}
+        </ol>
+      </div>
+    </div>
+
+    <div class="card">
+      <header>
+        <h2>Fifteen stages, four human gates</h2>
+        <span class="pill warn">amber = a human must act</span>
+      </header>
+      <div class="stage-map">
+        ${STAGES.map((label, i) => `
+          <div class="stage${i === GATE_STAGE_INDEX ? ' gate' : ''}">
+            <span class="n">${String(i + 1).padStart(2, '0')}</span>${label}
+          </div>`).join('')}
+      </div>
+      <div class="callout" style="margin-top:1rem">
+        The four gates are <b>RFQ release</b>, <b>technical approval</b>,
+        <b>negotiation authority</b> and <b>award &amp; PO</b>. They are enforced by role
+        permission, not by convention: a buyer who posts a technical approval receives
+        <span class="mono">403 lacks TECHNICAL_APPROVE</span>.
+        <span class="mono">ALLOW_AUTOMATED_PO_CREATION</span> and
+        <span class="mono">ALLOW_AUTOMATED_EMAIL_SEND</span> both ship <b>false</b>.
+      </div>
+    </div>
+
+    <p class="section-title">The agent, and what orchestrates it</p>
+    <div class="card">
+      <p>
+        Fifteen application stages run as <b>Temporal</b> activities inside one durable
+        workflow per case, so a sourcing case that waits three weeks for a supplier reply
+        survives restarts and redeploys without losing its place — the workflow id is
+        <span class="mono">procurement-{case_id}</span>.
+      </p>
+      <p class="muted">
+        There is deliberately no agent framework in the path. Each stage runs a
+        deterministic parser first and asks a model only for the remainder, so
+        extraction may be probabilistic while every decision — unit conversion,
+        compliance, ranking, approval thresholds — is ordinary audited code. With
+        <span class="mono">LLM_BACKEND=deterministic</span> the whole pipeline still runs,
+        which is how the test suite runs it.
+      </p>
+    </div>
+
+    <p class="section-title">Built on</p>
+    <div class="grid cols-2">
+      <div class="tech crdb">
+        <h4><span class="dot"></span>CockroachDB — the memory</h4>
+        <ul>
+          <li><b>Native <span class="mono">VECTOR</span> columns with C-SPANN ANN indexes</b>
+              on materials, vendors and document chunks. Capability is probed at start-up
+              and falls back to JSONB on an older cluster rather than failing to boot.</li>
+          <li><b>Hybrid retrieval.</b> Vector recall is merged with keyword precision by
+              reciprocal rank fusion, because pure vector search misses exact designations
+              like <span class="mono">ASME B16.34</span> — which is what a technical
+              evaluation has to find.</li>
+          <li><b>Bitemporal and append-only.</b> Evidence is never updated in place; a
+              change is a new version or a new claim, and a re-import supersedes rather
+              than destroys. A decision can be replayed years later against the exact
+              evidence that produced it.</li>
+          <li><b>Memory is queried, never loaded.</b> Millions of purchase-order lines
+              stay in the database. A benchmark request returns twelve rows through a
+              covering index. The model never sees a table.</li>
+          <li><b>Cloud BASIC on AWS us-east-1</b>, provisioned by <span class="mono">ccloud</span>,
+              with the Managed MCP Server attached <b>read-only</b> — an agent gets full
+              visibility while every mutation stays on the audited path.</li>
+        </ul>
+      </div>
+      <div class="tech aws">
+        <h4><span class="dot"></span>AWS — the compute</h4>
+        <ul>
+          <li><b>Amazon Bedrock</b> runs requirement extraction, compliance location and
+              negotiation drafting. Every call returns model id, token counts and latency,
+              so no model interaction is anonymous — and every call site is guarded, so the
+              stage proceeds on parser output if Bedrock is unreachable.</li>
+          <li><b>Amazon EC2</b> runs this demo: one <span class="mono">t4g.small</span>
+              configured entirely from user-data, carrying the API, a Temporal worker,
+              Temporal and its Postgres. No inbound SSH, and no AWS credentials on the box.</li>
+          <li><b>IAM least privilege plus AWS Budgets.</b> The credential cannot create
+              anything larger than a <span class="mono">t4g.small</span>, and crossing the
+              spend threshold attaches a deny-all policy automatically.</li>
+          <li><b>Terraform</b> describes the production topology — Fargate, ALB, KMS
+              customer-managed keys for sealed bids, SES receipt rules. Included as design
+              evidence; a demo does not need a NAT gateway.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout sealed-note">
+      <b>Sealed bids are encrypted, not merely flagged.</b> Until a human approves the
+      technical evaluation, each supplier's commercial payload is encrypted under a
+      per-bid data key bound to the case. Price cannot influence a technical judgement
+      even under a prompt injection — and supplier documents are treated as hostile
+      input throughout, screened for injection, outcome steering, bank-detail fraud and
+      lookalike sender domains before they reach a model.
+    </div>`;
+
+  // The badges are live rather than decorative: this is the running configuration.
+  api('/health/ready').then((health) => {
+    const box = document.getElementById('story-badges');
+    if (!box) return;
+    box.innerHTML = `
+      <span class="pill ${health.database.status === 'ok' ? 'ok' : 'danger'}">CockroachDB ${esc(health.database.status)}</span>
+      <span class="pill accent">${esc(health.backends.vector)} vectors</span>
+      <span class="pill ${health.temporal.status === 'ok' ? 'ok' : 'warn'}">Temporal ${esc(health.temporal.status)}</span>`;
+  }).catch(() => {});
+}
+
 // ── dashboard ───────────────────────────────────────────────────────────────
 
 async function renderDashboard() {
@@ -372,6 +569,7 @@ function renderCaseDetail(d) {
     </div>
 
     ${renderPendingActions(d)}
+    ${renderWorkflowPanel(d)}
     ${renderSecurityFindings(d)}
     ${renderRequisition(d)}
     ${renderRequirements(d)}
@@ -392,6 +590,75 @@ function renderCaseDetail(d) {
       </div>
       <div id="explain-panel"></div>
     </div>`;
+}
+
+// ── Temporal orchestration panel ────────────────────────────────────────────
+// The event list is Temporal's own history, fetched through the API, not a
+// reconstruction from our tables. It is the answer to "is this really
+// orchestrated, or is the pipeline just a for-loop?".
+
+function renderWorkflowPanel(d) {
+  const caseId = d.case.case_id;
+  const uiBase = `${location.protocol}//${location.hostname}:8088`;
+  const workflowId = `procurement-${caseId}`;
+  return `
+    <div class="card">
+      <header>
+        <h2>Durable orchestration</h2>
+        <div class="row">
+          <span class="pill accent mono">${esc(workflowId)}</span>
+          <button class="btn small" onclick="loadWorkflowHistory('${esc(caseId)}')">
+            Load Temporal history
+          </button>
+          <a class="btn small ghost" target="_blank" rel="noopener"
+             href="${esc(uiBase)}/namespaces/default/workflows/${encodeURIComponent(workflowId)}">
+            Open in Temporal UI ↗
+          </a>
+        </div>
+      </header>
+      <p class="muted">
+        Every stage below runs as a Temporal activity inside one workflow per case, so a
+        case that waits weeks for a supplier reply resumes in place after a restart.
+      </p>
+      <div id="wf-panel"></div>
+    </div>`;
+}
+
+async function loadWorkflowHistory(caseId) {
+  const box = document.getElementById('wf-panel');
+  if (!box) return;
+  box.innerHTML = '<p><span class="spinner"></span> Reading Temporal history…</p>';
+  try {
+    const h = await api(`/cases/${encodeURIComponent(caseId)}/workflow/history?limit=200`);
+    if (!h.available) {
+      box.innerHTML = `<p class="pill warn">Temporal history unavailable: ${esc(h.detail || 'no execution')}</p>`;
+      return;
+    }
+    const kind = (t) => t.startsWith('Activity') ? 'act'
+      : t.startsWith('Timer') ? 'timer'
+      : t.includes('Signaled') ? 'sig' : '';
+    box.innerHTML = `
+      <div class="wf-meta">
+        <div><div class="k">Run id</div><span class="mono">${esc(h.run_id)}</span></div>
+        <div><div class="k">Status</div>
+          <span class="pill ${h.status === 'RUNNING' ? 'accent' : 'ok'}">${esc(h.status)}</span></div>
+        <div><div class="k">Task queue</div><span class="mono">${esc(h.task_queue)}</span></div>
+        <div><div class="k">History events</div><span class="mono">${esc(String(h.event_count))}</span></div>
+        <div><div class="k">Started</div>${when(h.started_at)}</div>
+      </div>
+      <div class="wf-events">
+        ${h.events.map((e) => `
+          <div class="wf-event ${kind(e.event_type)}">
+            <span class="id">${esc(String(e.event_id))}</span>
+            <span class="type">${esc(e.event_type.replace(/([a-z])([A-Z])/g, '$1 $2'))}</span>
+            ${e.detail ? `<span class="detail">${esc(e.detail)}</span>` : ''}
+            <span class="at">${when(e.timestamp)}</span>
+          </div>`).join('')}
+      </div>
+      ${h.events.length ? '' : '<p class="muted">No events yet.</p>'}`;
+  } catch (error) {
+    box.innerHTML = `<p class="pill danger">${esc(error.message)}</p>`;
+  }
 }
 
 function renderPendingActions(d) {
@@ -1198,6 +1465,7 @@ async function loadBenchmark() {
 
 function switchTab(view) {
   show(view);
+  if (view === 'story') renderStory();
   if (view === 'dashboard') renderDashboard();
   if (view === 'cases') renderCases();
   if (view === 'outbox') renderOutbox();
@@ -1237,7 +1505,7 @@ function init() {
     tab.addEventListener('click', () => switchTab(tab.dataset.view)));
 
   loadBackendBadges();
-  switchTab('dashboard');
+  switchTab('story');
 }
 
 document.addEventListener('DOMContentLoaded', init);
@@ -1248,4 +1516,5 @@ Object.assign(window, {
   engineeringReady, loadMatrix, loadDecisions, loadAudit, loadCorrespondence,
   loadInfoRecords, applyInfoRecord, releaseMail, pollInbox, renderCases,
   renderOutbox, searchMaterials, loadBenchmark, quickBenchmark, uploadRequisition,
+  renderStory, loadWorkflowHistory,
 });

@@ -1,0 +1,19 @@
+PR Number: PR-2026-0851
+Plant: 1000
+Requester: R. Menon
+Requester Email: r.menon@acme-mfg.example
+Department: Maintenance - Utilities
+Priority: NORMAL
+Justification: Cooling water pump skid overhaul during the November shutdown.
+Budget Code: WBS-UTL-2026-14
+Currency: USD
+Required By: 2027-01-15
+
+Sl.No.,Material Code,Item Description,Plant Code,Material Group,Storage Location,Quantity,EOM,Delivery Date,Long Text
+10,FST-00131,Spring washer 3mm Steel 10.9,1000,MG-FAST,0001,400,EA,2027-01-15,Spring washer 3mm property class 10.9 for pump baseplate hold-down bolting. Supply with batch certificate. Zinc plated finish acceptable.
+20,FST-00060,Socket head cap screw 5mm SS A2-70,1000,MG-FAST,0001,250,EA,2027-01-15,Socket head cap screw 5mm stainless A2-70 for guard and cover fixing. Supply with matching nuts and washers. Batch certificate required.
+30,SEL-00066,Rotary shaft seal 367mm EPDM,1000,MG-SEAL,0001,10,EA,2027-01-15,Rotary shaft seal 367mm EPDM for cooling water pump shaft. Continuous duty at 80 deg C. Shelf life at least 24 months from despatch. Certificate EN 10204 3.1 required.
+40,TOL-00049,Collet 95mm PCD,1000,MG-TOOL,0002,6,EA,2027-01-15,Collet 95mm PCD for the maintenance workshop lathe used to reskim pump shafts during the shutdown. Supply with runout test report.
+50,BRG-00028,Deep groove ball bearing 73mm Bronze,1000,MG-BEARING,0001,20,EA,2027-01-15,Deep groove ball bearing 73mm for pump and motor shafts. Supply in sealed packaging with anti corrosion protection. Batch traceability required.
+60,CHM-00006,Anti-seize compound Synth ester,1000,MG-CHEM,0002,20,L,2027-01-15,Anti-seize compound synthetic ester base for stainless flange bolting on the cooling water header. Supply in 5 litre containers. Material safety data sheet required.
+70,ELC-00021,Circuit breaker Aluminium,1000,MG-ELEC,0001,25,EA,2027-01-15,Moulded case circuit breaker for the pump house distribution board. Supply type test certificate and coordination data with the offer.

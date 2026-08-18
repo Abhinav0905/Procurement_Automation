@@ -112,6 +112,64 @@ Warranty minimum 24 months
 """
 
 
+# A requisition typed by a plant engineer, using the column names an SAP export
+# and a hand-built sheet actually carry: a serial column rather than "Item", "EOM"
+# for the unit, a material group, and both a 40-character short text and a
+# 200-character long text.
+PLANT_SHEET_PR = b"""PR Number: PR-2026-0900
+Plant: 1000
+Requester: R. Menon
+
+Sl.No.,Material Code,Item Description,Plant Code,Material Group,Storage Location,Quantity,EOM,Delivery Date,Long Text
+10,SEL-00066,Rotary shaft seal 367mm EPDM,1000,MG-SEAL,0001,10,EA,2027-01-15,Rotary shaft seal for the cooling water pump shaft. Continuous duty at 80 deg C.
+20,,SS 304 seamless pipe 50NB Sch 40,1000,MG-RAW,0002,60,M,2027-01-15,Seamless austenitic stainless pipe ASTM A312 TP304 Schedule 40. Mill certificate 3.1 required.
+"""
+
+
+def test_plant_sheet_columns_are_recognised():
+    """Sl.No., EOM, Material Group and Long Text must all map.
+
+    Before these aliases existed the serial column was ignored, so every line
+    silently took its file position as its line number - which renumbers the
+    references a buyer quotes back to the requester.
+    """
+    result = PurchaseRequisitionParser().parse(
+        content=PLANT_SHEET_PR, filename="pr.csv", media_type="text/csv"
+    )
+    assert not result.warnings, result.warnings
+    pr = result.requisition
+    assert pr.pr_number == "PR-2026-0900"
+    assert [line.line_number for line in pr.lines] == [10, 20]
+
+    first = pr.lines[0]
+    assert first.material_code == "SEL-00066"
+    assert first.uom == "EA"
+    assert first.quantity == Decimal(10)
+    assert first.requested_material_group == "MG-SEAL"
+    # The short text stays the description; the long text is kept separately
+    # rather than overwriting it.
+    assert first.description == "Rotary shaft seal 367mm EPDM"
+    assert "Continuous duty" in first.notes
+
+    second = pr.lines[1]
+    assert second.free_text_only is True
+    assert second.uom == "M"
+
+
+def test_long_text_is_used_when_no_short_text_is_given():
+    """A sheet carrying only a long text still has to yield something to match on."""
+    content = (
+        b"Sl.No.,Material Code,Long Text,Plant Code,Quantity,EOM\n"
+        b"1,,Butt weld long radius elbow 90 degree 50NB SS 304 to ASTM A403,1000,24,EA\n"
+    )
+    result = PurchaseRequisitionParser().parse(
+        content=content, filename="pr.csv", media_type="text/csv"
+    )
+    line = result.requisition.lines[0]
+    assert line.description.startswith("Butt weld long radius elbow")
+    assert line.free_text_only is True
+
+
 def test_specification_yields_typed_requirements():
     requirements = SpecificationParser().extract(SPEC, source_location="SPEC-1")
     by_attribute = {r.attribute.lower(): r for r in requirements}

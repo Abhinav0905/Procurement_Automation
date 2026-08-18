@@ -132,6 +132,10 @@ class PurchaseRequisitionLine:
     preferred_vendor_id: str = ""
     free_text_only: bool = False  # no material code; described in prose
     notes: str = ""
+    # What the requester typed in the material-group column. The master is
+    # authoritative; this is kept so a mismatch can be surfaced rather than
+    # silently overwritten.
+    requested_material_group: str = ""
 
     def validate(self) -> list[str]:
         errors: list[str] = []

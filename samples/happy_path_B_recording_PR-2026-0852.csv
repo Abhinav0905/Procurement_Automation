@@ -1,0 +1,20 @@
+PR Number: PR-2026-0852
+Plant: 1000
+Requester: A. Iyer
+Requester Email: a.iyer@acme-mfg.example
+Department: Maintenance - Rotating Equipment
+Priority: NORMAL
+Justification: Annual shutdown spares for the cooling water pump house and machine shop.
+Budget Code: WBS-UTL-2026-21
+Currency: USD
+Required By: 2027-01-20
+
+Sl.No.,Material Code,Item Description,Plant Code,Material Group,Storage Location,Quantity,EOM,Delivery Date,Long Text
+10,SEL-00040,Spiral wound gasket 18mm NBR,1000,MG-SEAL,0001,40,EA,2027-01-20,Spiral wound gasket 18mm NBR filler with stainless winding for ASME B16.5 Class 150 flanges on the cooling water header. Shelf life at least 24 months. Certificate EN 10204 3.1 required.
+20,FST-00126,Threaded rod 40mm Steel 8.8,1000,MG-FAST,0001,50,EA,2027-01-20,Threaded rod 40mm property class 8.8 hot dip galvanised for pipe support hangers. Cut to random lengths of one metre. Batch certificate required with each lot.
+30,FST-00007,Retaining ring 6mm SS A2-70,1000,MG-FAST,0001,100,EA,2027-01-20,Retaining ring 6mm stainless A2-70 for pump impeller and bearing retention. Supply to DIN 471. Batch certificate required.
+40,TOL-00052,Drill bit 22mm HSS,1000,MG-TOOL,0002,50,EA,2027-01-20,Drill bit 22mm high speed steel for the maintenance workshop. Supply in protective sleeves. Manufacturer test certificate acceptable in place of EN 10204.
+50,BRG-00054,Spherical roller bearing 35mm Bronze,1000,MG-BEARING,0001,8,EA,2027-01-20,Spherical roller bearing 35mm for the cooling water pump non drive end. Supply in sealed packaging with anti corrosion protection and batch traceability.
+60,ELC-00066,Proximity sensor Aluminium,1000,MG-ELEC,0001,10,EA,2027-01-20,Inductive proximity sensor for pump guard interlock. IP67 enclosure minimum. Supply with mounting bracket and calibration certificate.
+70,RAW-00004,Sheet coil 41mm SS 316L,1000,MG-RAW,0002,150,KG,2027-01-20,Stainless sheet coil SS 316L 41mm width for cooling water ducting repair. Mill test certificate EN 10204 3.1 required per heat number.
+80,CHM-00032,Cutting fluid Synthetic ester,1000,MG-CHEM,0002,40,L,2027-01-20,Water miscible cutting fluid synthetic ester base for the workshop lathe and mill. Supply in 20 litre drums with material safety data sheet.

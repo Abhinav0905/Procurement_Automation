@@ -206,8 +206,14 @@ def run_pipeline_for_case(
     auto_approve: bool = True,
     simulate_quotes: bool = True,
     adversarial: bool = False,
+    stop_at: str = "",
 ) -> dict[str, Any]:
     """Drive one case through all fifteen stages.
+
+    ``stop_at="award"`` runs everything up to the award gate and then stops with
+    the case sitting in WAITING_FOR_AWARD_APPROVAL and no award approval recorded.
+    That leaves a case where the only remaining step is a human authorising the
+    order, which is what a demonstration wants to end on.
 
     Each block mirrors exactly what the corresponding Temporal activity does.
     Sessions are short-lived and committed between stages, which is also how the
@@ -483,6 +489,13 @@ def run_pipeline_for_case(
                 CaseState.WAITING_FOR_AWARD_APPROVAL, actor="SYSTEM", reason="Evaluation complete"
             )
         ctx.repos.cases.save(case)
+
+        if stop_at == "award":
+            trace.append(
+                {"stage": "11 awaiting_human_award_approval", "winner": winner.vendor_id,
+                 "award_value_base": str(winner.total_base)}
+            )
+            return {"case_id": case_id, "halted_at": "awaiting_award_approval", "trace": trace}
 
         chain = ctx.policy.approval_chain_for_award(
             award_value_base=Decimal(str(winner.total_base)),

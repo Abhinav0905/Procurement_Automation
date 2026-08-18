@@ -43,17 +43,35 @@ class ParseResult:
 
 # Header aliases seen across SAP exports, Ariba/Coupa CSVs and hand-built sheets.
 _HEADER_ALIASES: dict[str, tuple[str, ...]] = {
-    "line_number": ("line", "line_no", "line_number", "item", "item_no", "pos", "position", "seq"),
+    "line_number": (
+        "line", "line_no", "line_number", "item", "item_no", "pos", "position", "seq",
+        # Requisitions typed by hand, and most SAP exports, carry a serial column
+        # rather than "item". Missing these made every row fall back to its file
+        # position, silently renumbering the buyer's line references.
+        "sl_no", "slno", "sl", "s_no", "sr_no", "srl_no", "serial", "serial_no",
+    ),
     "material_code": (
         "material", "material_code", "material_number", "matnr", "part", "part_no",
         "part_number", "item_code", "sku", "article", "stock_code",
     ),
     "description": (
         "description", "desc", "short_text", "text", "material_description", "item_description",
-        "long_text", "specification",
+        "specification",
     ),
+    # Kept separate from description: a sheet with both a 40-character short text
+    # and a 200-character long text must retain both, and the long text is what
+    # the RFQ needs to quote against.
+    "long_text": (
+        "long_text", "item_long_text", "long_description", "detailed_text", "pr_text", "item_text",
+    ),
+    # Informational: the material master is authoritative for the group. Recognised
+    # so the column is not reported as unmapped, and compared in stage 2.
+    "material_group": ("material_group", "matkl", "commodity_code", "commodity", "mat_group"),
     "quantity": ("quantity", "qty", "menge", "req_qty", "requested_quantity", "amount_qty"),
-    "uom": ("uom", "unit", "units", "unit_of_measure", "meins", "uom_code", "u_m"),
+    "uom": (
+        "uom", "unit", "units", "unit_of_measure", "meins", "uom_code", "u_m",
+        "eom", "order_unit", "base_uom", "uom_eom",
+    ),
     "required_date": (
         "required_date", "need_by", "need_by_date", "delivery_date", "requested_date",
         "due_date", "req_date", "eddat",
@@ -452,6 +470,11 @@ class PurchaseRequisitionParser:
 
         material_code = str(data.get("material_code") or "").strip()
         description = str(data.get("description") or "").strip()
+        long_text = str(data.get("long_text") or "").strip()
+        if not description:
+            # A sheet with only a long text still has to yield something to match
+            # a material against.
+            description = long_text
 
         return PurchaseRequisitionLine(
             line_number=int(_to_decimal(data.get("line_number")) or fallback_index),
@@ -470,7 +493,8 @@ class PurchaseRequisitionParser:
             manufacturer_part_number=str(data.get("manufacturer_part_number") or "").strip(),
             preferred_vendor_id=str(data.get("preferred_vendor_id") or "").strip(),
             free_text_only=not material_code,
-            notes=str(data.get("notes") or "").strip(),
+            notes=str(data.get("notes") or "").strip() or long_text,
+            requested_material_group=str(data.get("material_group") or "").strip().upper(),
         )
 
     @staticmethod

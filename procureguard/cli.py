@@ -109,6 +109,7 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
         approver=args.approver,
         auto_approve=args.auto_approve,
         simulate_quotes=not args.no_quotes,
+        stop_at=args.stop_at,
     )
     _print(result)
     return 0
@@ -212,6 +213,11 @@ def build_parser() -> argparse.ArgumentParser:
     pipeline.add_argument("--approver", default="jordan.head")
     pipeline.add_argument("--auto-approve", action="store_true", default=True)
     pipeline.add_argument("--no-quotes", action="store_true", help="do not simulate supplier replies")
+    pipeline.add_argument(
+        "--stop-at", default="", choices=["", "award"],
+        help="halt before a gate instead of auto-approving it; 'award' leaves the case "
+             "waiting for a human to authorise the order",
+    )
     pipeline.set_defaults(func=cmd_pipeline)
 
     mail = subparsers.add_parser("mail", help="mailroom operations")

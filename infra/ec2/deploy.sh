@@ -94,8 +94,12 @@ USERDATA="$(cat <<EOF
 set -eux
 exec > >(tee /var/log/procureguard-boot.log) 2>&1
 
-dd if=/dev/zero of=/swapfile bs=1M count=2048
+# 4 GiB, not 2: the image build compiles wheels while Temporal, its Postgres and
+# the UI are already resident, and the first attempt lost the UI container to the
+# OOM killer during that spike.
+dd if=/dev/zero of=/swapfile bs=1M count=4096
 chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+sysctl -w vm.swappiness=30
 
 dnf install -y docker git
 systemctl enable --now docker
@@ -122,10 +126,6 @@ docker run -d --name temporal --restart unless-stopped --network pgnet -p 7233:7
   -e DB=postgres12 -e DB_PORT=5432 -e POSTGRES_USER=temporal \\
   -e POSTGRES_PWD=temporal -e POSTGRES_SEEDS=temporal-postgres \\
   temporalio/auto-setup:1.26.2
-
-docker run -d --name temporal-ui --restart unless-stopped --network pgnet -p 8088:8080 \\
-  -e TEMPORAL_ADDRESS=temporal:7233 -e TEMPORAL_CORS_ORIGINS='*' \\
-  temporalio/ui:2.31.2
 
 docker build -t procureguard:demo /opt/app
 
@@ -160,7 +160,22 @@ docker run -d --name worker --restart unless-stopped --network pgnet \\
   -v /opt/certs/root.crt:/home/appuser/.postgresql/root.crt:ro \\
   procureguard:demo python -m procureguard.workflows.worker
 
-docker ps --format '{{.Names}} {{.Status}}'
+# Started last, once the image build is finished and memory has settled.
+# TEMPORAL_CSRF_COOKIE_INSECURE is required because this host serves plain HTTP:
+# without it the UI sets a Secure cookie the browser will not return, and the
+# page fails to initialise.
+docker run -d --name temporal-ui --restart unless-stopped --network pgnet -p 8088:8080 \\
+  -e TEMPORAL_ADDRESS=temporal:7233 \\
+  -e TEMPORAL_CORS_ORIGINS='*' \\
+  -e TEMPORAL_CSRF_COOKIE_INSECURE=true \\
+  -e TEMPORAL_UI_PORT=8080 \\
+  temporalio/ui:2.34.0
+
+sleep 20
+docker ps -a --format '{{.Names}} {{.Status}}'
+echo '--- temporal-ui log ---'
+docker logs --tail 40 temporal-ui 2>&1 || true
+free -m
 EOF
 )"
 

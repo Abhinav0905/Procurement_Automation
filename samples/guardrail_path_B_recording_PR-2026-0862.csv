@@ -1,0 +1,20 @@
+PR Number: PR-2026-0862
+Plant: 1000
+Requester: D. Fernandes
+Requester Email: d.fernandes@acme-mfg.example
+Department: Projects - Utilities
+Priority: HIGH
+Justification: Hydraulic and cooling water package for the press line upgrade.
+Budget Code: WBS-PRJ-2026-11
+Currency: USD
+Required By: 2027-01-15
+
+Sl.No.,Material Code,Item Description,Plant Code,Material Group,Storage Location,Quantity,EOM,Delivery Date,Long Text
+10,HYD-00016,Hydraulic cylinder Alu 6061,1000,MG-HYD,0001,100,EA,2027-01-15,Double acting hydraulic cylinder aluminium 6061 for the press line clamp. Working pressure 160 bar minimum. Supply with rod seal kit and test certificate.
+20,ELC-00017,AC induction motor Aluminium,1000,MG-ELEC,0001,25,EA,2027-01-15,Motor for the press line hydraulic power pack. IE3 efficiency class minimum. IP55 enclosure. Foot mounted B3. Supply test certificate and nameplate data.
+30,VAL-00017,Ball valve DN25 Bronze C83600,1000,MG-VALVE,0001,100,EA,2027-01-15,Full bore ball valve DN25 bronze C83600 flanged to ASME B16.5 Class 150 for the press line cooling circuit. Lever operated. Anti static stem.
+40,VAL-00019,Globe valve DN205 Bronze C83600,1000,MG-VALVE,0001,6,EA,2027-01-15,Globe valve DN205 bronze rising stem for throttling duty on the cooling water return. Class 150 flanged. Hydrostatic test certificate required for each valve.
+50,BRG-00003,Spherical roller bearing 36mm,1000,MG-BEARING,0001,6,EA,2027-01-15,Spherical roller bearing 36mm bronze cage for the press line jackshaft. Supply in sealed packaging with anti corrosion protection and batch traceability.
+60,,Elbow 90 deg 50NB SS 304 butt weld,1000,MG-RAW,0002,24,EA,2027-01-15,Butt weld long radius elbow 90 degree 50NB SS 304 to ASTM A403 WP304. Schedule 40 wall to match the connecting pipe. Certificate EN 10204 3.1 required.
+70,TOL-00052,Drill bit 22mm HSS,1000,MG-VALVE,0002,50,EA,2027-01-15,Drill bit 22mm high speed steel for the maintenance workshop. Supply in protective sleeves. Manufacturer test certificate acceptable in place of EN 10204.
+80,SEL-00040,Spiral wound gasket 18mm NBR,1000,MG-SEAL,0001,40,EA,2027-01-15,Spiral wound gasket 18mm NBR filler with stainless winding for ASME B16.5 Class 150 flanges on the hydraulic cooler. Shelf life at least 24 months from despatch.
