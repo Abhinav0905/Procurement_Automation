@@ -104,14 +104,63 @@ systemctl enable --now docker
 mkdir -p /opt/certs
 curl -sS -o /opt/certs/root.crt "https://cockroachlabs.cloud/clusters/${CLUSTER_ID}/cert"
 
-dnf install -y docker-compose-plugin || true
-
 git clone --depth 1 "${REPO}" /opt/app
 
-# Temporal, its Postgres, the API and a worker. The database stays remote — this
-# host holds workflow state only.
-cd /opt/app/infra/ec2
-DATABASE_URL='${DATABASE_URL}' docker compose -f docker-compose.demo.yml up -d --build
+# Plain docker run rather than compose: the compose plugin is not in the
+# Amazon Linux 2023 repositories, and one missing package taking the whole stack
+# down is a poor trade for slightly tidier syntax. The topology is identical to
+# infra/ec2/docker-compose.demo.yml, which remains the readable description.
+docker network create pgnet
+
+docker run -d --name temporal-postgres --restart unless-stopped --network pgnet \\
+  -e POSTGRES_USER=temporal -e POSTGRES_PASSWORD=temporal -e POSTGRES_DB=temporal \\
+  -v temporal-pg:/var/lib/postgresql/data postgres:16-alpine
+
+until docker exec temporal-postgres pg_isready -U temporal; do sleep 3; done
+
+docker run -d --name temporal --restart unless-stopped --network pgnet -p 7233:7233 \\
+  -e DB=postgres12 -e DB_PORT=5432 -e POSTGRES_USER=temporal \\
+  -e POSTGRES_PWD=temporal -e POSTGRES_SEEDS=temporal-postgres \\
+  temporalio/auto-setup:1.26.2
+
+docker run -d --name temporal-ui --restart unless-stopped --network pgnet -p 8088:8080 \\
+  -e TEMPORAL_ADDRESS=temporal:7233 -e TEMPORAL_CORS_ORIGINS='*' \\
+  temporalio/ui:2.31.2
+
+docker build -t procureguard:demo /opt/app
+
+# Written once and reused by both containers so they cannot drift apart.
+cat > /opt/app.env <<'ENVEOF'
+APP_ENV=local
+AUTH_MODE=dev
+LOG_FORMAT=json
+DEFAULT_TENANT_ID=ACME-MFG
+TEMPORAL_ADDRESS=temporal:7233
+TEMPORAL_NAMESPACE=default
+TEMPORAL_TASK_QUEUE=procureguard-procurement
+OBJECT_STORE_BACKEND=local
+LLM_BACKEND=deterministic
+EMBEDDING_BACKEND=hashing
+EMBEDDING_DIMENSIONS=256
+EMAIL_BACKEND=filesystem
+ENCRYPTION_BACKEND=local
+ALLOW_AUTOMATED_EMAIL_SEND=false
+ALLOW_AUTOMATED_PO_CREATION=false
+DB_STATEMENT_TIMEOUT_MS=120000
+ENVEOF
+echo "DATABASE_URL=${DATABASE_URL}" >> /opt/app.env
+
+docker run -d --name api --restart unless-stopped --network pgnet -p 80:8000 \\
+  --env-file /opt/app.env \\
+  -v /opt/certs/root.crt:/home/appuser/.postgresql/root.crt:ro \\
+  procureguard:demo
+
+docker run -d --name worker --restart unless-stopped --network pgnet \\
+  --env-file /opt/app.env \\
+  -v /opt/certs/root.crt:/home/appuser/.postgresql/root.crt:ro \\
+  procureguard:demo python -m procureguard.workflows.worker
+
+docker ps --format '{{.Names}} {{.Status}}'
 EOF
 )"
 

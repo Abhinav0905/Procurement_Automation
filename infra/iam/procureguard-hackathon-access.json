@@ -25,7 +25,11 @@
         "bedrock:GetInferenceProfile"
       ],
       "Resource": "*",
-      "Condition": { "StringEquals": { "aws:RequestedRegion": "us-east-1" } }
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
     },
     {
       "Sid": "S3BucketLifecycleUsEast1Only",
@@ -43,7 +47,11 @@
         "s3:GetEncryptionConfiguration"
       ],
       "Resource": "arn:aws:s3:::procureguard-*",
-      "Condition": { "StringEquals": { "aws:RequestedRegion": "us-east-1" } }
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
     },
     {
       "Sid": "S3ListAllBuckets",
@@ -75,10 +83,15 @@
         "ec2:DescribeSubnets",
         "ec2:DescribeSecurityGroups",
         "ec2:DescribeAvailabilityZones",
-        "ec2:DescribeTags"
+        "ec2:DescribeTags",
+        "ec2:GetConsoleOutput"
       ],
       "Resource": "*",
-      "Condition": { "StringEquals": { "aws:RequestedRegion": "us-east-1" } }
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
     },
     {
       "Sid": "Ec2DemoBoxLifecycleUsEast1",
@@ -95,7 +108,11 @@
         "ec2:RevokeSecurityGroupIngress"
       ],
       "Resource": "*",
-      "Condition": { "StringEquals": { "aws:RequestedRegion": "us-east-1" } }
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
     },
     {
       "Sid": "DenyInstanceTypesLargerThanT4gSmall",
@@ -104,16 +121,27 @@
       "Resource": "arn:aws:ec2:*:*:instance/*",
       "Condition": {
         "StringNotEquals": {
-          "ec2:InstanceType": ["t4g.nano", "t4g.micro", "t4g.small"]
+          "ec2:InstanceType": [
+            "t4g.nano",
+            "t4g.micro",
+            "t4g.small"
+          ]
         }
       }
     },
     {
       "Sid": "SsmPublicAmiLookupUsEast1",
       "Effect": "Allow",
-      "Action": ["ssm:GetParameter", "ssm:GetParameters"],
+      "Action": [
+        "ssm:GetParameter",
+        "ssm:GetParameters"
+      ],
       "Resource": "*",
-      "Condition": { "StringEquals": { "aws:RequestedRegion": "us-east-1" } }
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
     },
     {
       "Sid": "ReadOwnSpend",
