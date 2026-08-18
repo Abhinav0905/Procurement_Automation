@@ -1,6 +1,6 @@
 # ProcureGuard
 
-**Live demo:** <http://ec2-54-204-112-30.compute-1.amazonaws.com> ·
+**Live demo:** <http://ec2-3-83-106-163.compute-1.amazonaws.com> ·
 **Tool map:** [docs/hackathon.md](docs/hackathon.md)
 
 A human-in-the-loop procurement agent for manufacturing companies. It takes a

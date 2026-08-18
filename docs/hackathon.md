@@ -1,6 +1,6 @@
 # CockroachDB × AWS Hackathon — tools used
 
-**Live demo:** <http://ec2-54-204-112-30.compute-1.amazonaws.com>
+**Live demo:** <http://ec2-3-83-106-163.compute-1.amazonaws.com>
 (pick an identity in the top-right, then work a case)
 
 This document maps the hackathon requirements onto the code, so each claim can be
@@ -20,13 +20,23 @@ Against the deployed instance and the CockroachDB Cloud cluster behind it:
 | Audit | 18 approvals, 57 decisions, 98 audit entries |
 | Semantic search | `stainless ball valve` → `Ball valve DN98 SS 316L` @ 0.3642 |
 | RBAC | a `BUYER` posting a technical approval gets `403 lacks TECHNICAL_APPROVE` |
+| Temporal | `health/ready` reports `temporal: ok` at `temporal:7233` |
+| Durable workflow | upload returns a real `workflow_id` and `run_id`; `/workflow` reports live stage |
+| Requisition intake | CSV drop opens a case; re-upload is idempotent by content hash |
 
-`health/ready` reports `temporal: unavailable` on the demo box, and that is
-working as designed: the readiness endpoint reports every dependency separately
-so a degraded one is *visible* rather than inferred. The demo box runs the API and
-approval UI only — the fifteen-stage pipeline is driven by `procureguard demo`,
-which needs no Temporal. Temporal owns durable scheduling for live cases, which a
-public demo does not exercise.
+The demo is not a simulation. Dropping a requisition on the live instance with
+"start workflow" ticked starts a real Temporal execution:
+
+```
+POST /api/v1/cases/upload  ->  "workflow": {
+  "workflow_id": "procurement-PG-PR-202608-5297522C",
+  "run_id": "a27ec69b-ea1e-49c7-863e-515cd01105b2" }
+
+GET /api/v1/cases/{id}/workflow  ->  { "stage": "WAITING_FOR_ENGINEERING", ... }
+```
+
+The host runs Temporal, its Postgres, the API and a worker; the database stays
+remote in CockroachDB Cloud, so this host holds workflow state only.
 
 ## CockroachDB tools
 
@@ -172,8 +182,10 @@ AWS Budgets if spend crosses a threshold.
 
 **Where:** [`infra/ec2/deploy.sh`](../infra/ec2/deploy.sh)
 
-The public demo runs on a single `t4g.micro` in `us-east-1`, configured entirely
-from user-data: no ALB, no NAT gateway, no task definitions. A demo for a handful
+The public demo runs on a single `t4g.small` in `us-east-1`, configured entirely
+from user-data: no ALB, no NAT gateway, no task definitions. It carries five
+containers — Temporal, its Postgres, the Temporal UI, the API and a worker — so
+the demo exercises the durable orchestration path rather than a simulated one. A demo for a handful
 of visitors does not need $99/month of networking, and the production topology is
 already described in Terraform for anyone who wants to see it.
 
