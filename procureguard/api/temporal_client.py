@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from temporalio.api.enums.v1 import EventType
 from temporalio.client import Client
 
 from procureguard.config import get_settings
@@ -156,7 +157,9 @@ async def fetch_workflow_history(case_id: str, *, limit: int = 200) -> dict[str,
     scheduled_names: dict[int, str] = {}
     events: list[dict[str, Any]] = []
     for event in raw:
-        type_name = event.event_type.name.removeprefix("EVENT_TYPE_")
+        # event_type is a raw protobuf enum value, so the name has to come from the
+        # descriptor rather than from the attribute.
+        type_name = EventType.Name(event.event_type).removeprefix("EVENT_TYPE_")
         pretty = "".join(part.capitalize() for part in type_name.split("_"))
         detail = _event_detail(event)
         if pretty == "ActivityTaskScheduled":

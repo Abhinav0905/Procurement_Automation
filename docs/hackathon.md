@@ -1,7 +1,8 @@
 # CockroachDB × AWS Hackathon — tools used
 
-**Live demo:** <http://ec2-3-83-106-163.compute-1.amazonaws.com>
-(pick an identity in the top-right, then work a case)
+**Live demo:** <http://ec2-44-201-136-91.compute-1.amazonaws.com>
+(pick an identity in the top-right, then work a case) ·
+**Three-minute walkthrough:** [demo-script.md](demo-script.md)
 
 This document maps the hackathon requirements onto the code, so each claim can be
 checked rather than taken on trust. Every command below is runnable against a
@@ -23,6 +24,9 @@ Against the deployed instance and the CockroachDB Cloud cluster behind it:
 | Temporal | `health/ready` reports `temporal: ok` at `temporal:7233` |
 | Durable workflow | upload returns a real `workflow_id` and `run_id`; `/workflow` reports live stage |
 | Requisition intake | CSV drop opens a case; re-upload is idempotent by content hash |
+| Temporal history | `/cases/{id}/workflow/history` returns Temporal's own events, activity names resolved |
+| Guardrails | one requisition where 6 lines each fail for a different real master-data reason |
+| Award gate | a case driven to `WAITING_FOR_AWARD_APPROVAL` after a negotiation round taking 9.76% off |
 
 The demo is not a simulation. Dropping a requisition on the live instance with
 "start workflow" ticked starts a real Temporal execution:
@@ -242,7 +246,7 @@ years later against the exact evidence that produced it.
 Stated plainly rather than left for a judge to discover:
 
 - **The ECS topology is described, not applied.** The running demo is a single
-  `t4g.micro` against the Cloud cluster. [`infra/terraform/`](../infra/terraform/)
+  `t4g.small` against the Cloud cluster. [`infra/terraform/`](../infra/terraform/)
   shows how this would actually be deployed — multi-AZ Fargate, ALB, KMS, SES —
   and is included as design evidence rather than a running system.
 - **Bedrock is coded and documented but gated.** Anthropic models on Bedrock

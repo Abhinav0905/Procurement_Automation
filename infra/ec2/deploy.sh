@@ -80,11 +80,29 @@ else
 fi
 
 # 80 for the app, 8088 for the Temporal UI so workflow executions are visible.
-# Both idempotent: an existing rule returns Duplicate and is not an error here.
+#
+# Only InvalidPermission.Duplicate is an acceptable failure here. The previous
+# version of this loop reported "already open" for *any* error, which would have
+# hidden a genuine permissions failure behind a reassuring message - so the rule
+# is verified afterwards rather than assumed.
 for port in 80 8088; do
-  aws ec2 authorize-security-group-ingress --region "$REGION" --group-id "$SG" \
-    --protocol tcp --port "$port" --cidr 0.0.0.0/0 >/dev/null 2>&1 \
-    && echo "    Opened tcp/$port" || echo "    tcp/$port already open"
+  err="$(aws ec2 authorize-security-group-ingress --region "$REGION" --group-id "$SG" \
+    --protocol tcp --port "$port" --cidr 0.0.0.0/0 2>&1 >/dev/null)" || {
+      case "$err" in
+        *InvalidPermission.Duplicate*) : ;;
+        *) echo "ERROR opening tcp/$port: $err" >&2; exit 1 ;;
+      esac
+    }
+done
+
+open_ports="$(aws ec2 describe-security-groups --region "$REGION" --group-ids "$SG" \
+  --query 'SecurityGroups[0].IpPermissions[].FromPort' --output text)"
+echo "    Ingress open on: $open_ports"
+for port in 80 8088; do
+  case " $open_ports " in
+    *" $port "*) : ;;
+    *) echo "ERROR tcp/$port is not open on $SG" >&2; exit 1 ;;
+  esac
 done
 
 # ── user-data ───────────────────────────────────────────────────────────────
@@ -150,9 +168,18 @@ DB_STATEMENT_TIMEOUT_MS=120000
 ENVEOF
 echo "DATABASE_URL=${DATABASE_URL}" >> /opt/app.env
 
+# Container status, published at /ui/stack.txt. Two purposes: it lets a judge
+# confirm the five containers are genuinely running rather than taking the
+# architecture diagram on trust, and it is the only way to see why a container
+# failed on a host with no inbound SSH. Deliberately carries no secrets - names,
+# status, free memory and the Temporal UI log, never /opt/app.env.
+: > /opt/stack.txt
+chmod 644 /opt/stack.txt
+
 docker run -d --name api --restart unless-stopped --network pgnet -p 80:8000 \\
   --env-file /opt/app.env \\
   -v /opt/certs/root.crt:/home/appuser/.postgresql/root.crt:ro \\
+  -v /opt/stack.txt:/app/procureguard/api/ui/stack.txt:ro \\
   procureguard:demo
 
 docker run -d --name worker --restart unless-stopped --network pgnet \\
@@ -171,11 +198,27 @@ docker run -d --name temporal-ui --restart unless-stopped --network pgnet -p 808
   -e TEMPORAL_UI_PORT=8080 \\
   temporalio/ui:2.34.0
 
+# Refreshed in the background so a container that dies later is still visible.
+# Truncate-in-place with '>' rather than replacing the file, or the bind mount
+# into the API container would point at a stale inode.
+(
+  while true; do
+    {
+      echo "generated: \$(date -u +%FT%TZ)"
+      echo
+      docker ps -a --format '{{.Names}}\t{{.Status}}\t{{.Ports}}'
+      echo
+      free -m
+      echo
+      echo '--- temporal-ui ---'
+      docker logs --tail 60 temporal-ui 2>&1 || echo '(no temporal-ui container)'
+    } > /opt/stack.txt 2>&1
+    sleep 60
+  done
+) &
+
 sleep 20
-docker ps -a --format '{{.Names}} {{.Status}}'
-echo '--- temporal-ui log ---'
-docker logs --tail 40 temporal-ui 2>&1 || true
-free -m
+cat /opt/stack.txt
 EOF
 )"
 

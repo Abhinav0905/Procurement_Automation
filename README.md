@@ -1,7 +1,14 @@
 # ProcureGuard
 
-**Live demo:** <http://ec2-3-83-106-163.compute-1.amazonaws.com> ·
-**Tool map:** [docs/hackathon.md](docs/hackathon.md)
+**Live demo:** <http://ec2-44-201-136-91.compute-1.amazonaws.com> ·
+**Tool map:** [docs/hackathon.md](docs/hackathon.md) ·
+**Demo walkthrough:** [docs/demo-script.md](docs/demo-script.md)
+
+The demo opens on a **How it works** tab: the path a materials requisition takes
+through an engineering and procurement team today, the same path with
+ProcureGuard, and what CockroachDB and AWS each carry. Then drop one of the
+requisitions in [`samples/`](samples/) on the Cases tab and watch a real Temporal
+workflow start.
 
 A human-in-the-loop procurement agent for manufacturing companies. It takes a
 purchase requisition and carries it to a ready-to-release purchase order:
